@@ -1,51 +1,49 @@
 'use client'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
-export type CharName = 'claude' | 'chatgpt' | 'gemini' | 'chairman'
-type Phase = 'idle' | 'writing' | 'judging' | 'results'
+export type CharName = 'claude' | 'chatgpt' | 'gemini'
 
 interface CharacterProps {
   name: CharName
-  phase: Phase
+  phase: 'idle' | 'writing' | 'judging' | 'results'
   size?: number
-  speech?: string          // text to show in speech bubble
-  speechSide?: 'left' | 'right'
+  speech?: string
 }
 
 export const CHAR_CONFIG: Record<CharName, {
   color: string
-  headBg: string
-  shirtColor: string
-  shirtLight: string
+  headBase: string
+  headDark: string
+  suitMid: string
+  suitDark: string
   label: string
 }> = {
-  claude:   { color: '#D97559', headBg: '#180b05', shirtColor: '#4a1e0e', shirtLight: '#6b2e18', label: 'CLAUDE' },
-  chatgpt:  { color: '#10A37F', headBg: '#041510', shirtColor: '#043828', shirtLight: '#075c42', label: 'CHATGPT' },
-  gemini:   { color: '#4285F4', headBg: '#040e24', shirtColor: '#0c2668', shirtLight: '#1840a8', label: 'GEMINI' },
-  chairman: { color: '#C9A84C', headBg: '#08080f', shirtColor: '#0e0e1e', shirtLight: '#1c1c34', label: 'CHAIRMAN' },
+  claude:  { color: '#E97040', headBase: '#3d1408', headDark: '#0e0301', suitMid: '#521a0a', suitDark: '#180402', label: 'CLAUDE' },
+  chatgpt: { color: '#10A37F', headBase: '#062c1a', headDark: '#020e08', suitMid: '#0a4028', suitDark: '#020e08', label: 'CHATGPT' },
+  gemini:  { color: '#4285F4', headBase: '#0c2250', headDark: '#030810', suitMid: '#102868', suitDark: '#030a18', label: 'GEMINI' },
 }
 
-// ── AI Logos (all coords in 200×100 space, centered at 100,50) ──────────────
-
+// ── Logos centered at (100, 70) in 200-wide viewBox ─────────────────────────
 function ClaudeLogo() {
   return (
     <>
-      <path d="M100 12 L136 50 L100 88 L64 50 Z" fill="none" stroke="#D97559" strokeWidth="5.5" strokeLinejoin="round" />
-      <path d="M100 30 L118 50 L100 70 L82 50 Z" fill="#D97559" />
+      <path d="M100 36 L134 70 L100 104 L66 70 Z"
+        fill="none" stroke="#E97040" strokeWidth="5.5" strokeLinejoin="round" />
+      <path d="M100 52 L118 70 L100 88 L82 70 Z" fill="#E97040" />
     </>
   )
 }
 
 function ChatGPTLogo() {
-  const angles = [0, 30, 60, 90, 120, 150]
   return (
     <>
-      {angles.map(deg => (
-        <rect key={deg} x="92" y="18" width="16" height="40" rx="8"
-          fill="#10A37F" opacity="0.8" transform={`rotate(${deg} 100 50)`} />
+      {[0, 30, 60, 90, 120, 150].map(deg => (
+        <rect key={deg} x="93" y="40" width="14" height="36"
+          rx="7" fill="#10A37F" opacity="0.82"
+          transform={`rotate(${deg} 100 70)`} />
       ))}
-      <circle cx="100" cy="50" r="10" fill="#041510" />
-      <circle cx="100" cy="50" r="6"  fill="#10A37F" />
+      <circle cx="100" cy="70" r="9" fill="#020e08" />
+      <circle cx="100" cy="70" r="5.5" fill="#10A37F" />
     </>
   )
 }
@@ -53,217 +51,204 @@ function ChatGPTLogo() {
 function GeminiLogo() {
   return (
     <>
-      <path d="M100 10 C100 30 116 40 100 50 C84 40 100 30 100 10Z"  fill="#4285F4" />
-      <path d="M100 90 C100 70 84 60 100 50 C116 60 100 70 100 90Z"  fill="#4285F4" />
-      <path d="M60 50  C80 50 90 36 100 50 C90 64 80 50 60 50Z"      fill="#4285F4" />
-      <path d="M140 50 C120 50 110 64 100 50 C110 36 120 50 140 50Z" fill="#4285F4" />
+      <path d="M100 36 C100 54 116 62 100 70 C84 62 100 54 100 36Z" fill="#4285F4" />
+      <path d="M100 104 C100 86 84 78 100 70 C116 78 100 86 100 104Z" fill="#4285F4" />
+      <path d="M64 70 C82 70 90 56 100 70 C90 84 82 70 64 70Z" fill="#4285F4" />
+      <path d="M136 70 C118 70 110 84 100 70 C110 56 118 70 136 70Z" fill="#4285F4" />
     </>
   )
 }
 
-function ChairmanLogo() {
-  return (
-    <>
-      <path d="M62 82 L62 46 L80 64 L100 28 L120 64 L138 46 L138 82 Z"
-        fill="#C9A84C" stroke="#E8C060" strokeWidth="2.5" strokeLinejoin="round" />
-      <rect x="58" y="80" width="84" height="13" rx="5"
-        fill="#C9A84C" stroke="#E8C060" strokeWidth="1.5" />
-      <circle cx="100" cy="42" r="6" fill="#fff9d6" />
-      <circle cx="76"  cy="66" r="5" fill="#fff9d6" />
-      <circle cx="124" cy="66" r="5" fill="#fff9d6" />
-    </>
-  )
-}
-
-// ── Character SVG body (viewBox 200×310) ─────────────────────────────────────
-function CharBody({
-  name,
-  isWriting,
-  isJudging,
-}: { name: CharName; isWriting: boolean; isJudging: boolean }) {
+// ── 3D character SVG ─────────────────────────────────────────────────────────
+function CharSVG({ name, isWriting }: { name: CharName; isWriting: boolean }) {
   const c = CHAR_CONFIG[name]
   const skin = '#e8b896'
+  const uid = name // unique per character
 
   return (
     <svg viewBox="0 0 200 310" style={{ overflow: 'visible', display: 'block' }}>
+      <defs>
+        {/* 3D sphere lighting for head */}
+        <radialGradient id={`hl-${uid}`} cx="36%" cy="27%" r="65%">
+          <stop offset="0%"   stopColor="#ffffff" stopOpacity="0.32" />
+          <stop offset="38%"  stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0.6" />
+        </radialGradient>
+        <radialGradient id={`hb-${uid}`} cx="48%" cy="44%" r="60%">
+          <stop offset="0%"   stopColor={c.headBase} />
+          <stop offset="100%" stopColor={c.headDark} />
+        </radialGradient>
+        {/* Body gradient */}
+        <linearGradient id={`bg-${uid}`} x1="10%" y1="0%" x2="90%" y2="100%">
+          <stop offset="0%"   stopColor={c.suitMid} />
+          <stop offset="50%"  stopColor={c.suitMid} stopOpacity="0.75" />
+          <stop offset="100%" stopColor={c.suitDark} />
+        </linearGradient>
+      </defs>
 
-      {/* ── Drop shadow ── */}
-      <ellipse cx="100" cy="305" rx="72" ry="7" fill="rgba(0,0,0,0.35)" />
+      {/* Shadow */}
+      <ellipse cx="100" cy="308" rx="65" ry="6" fill="rgba(0,0,0,0.45)" />
 
-      {/* ── Chair back ── */}
-      <rect x="-2"  y="126" width="204" height="20" rx="10" fill="#5a3d20" stroke="#8a6040" strokeWidth="2" />
-      <rect x="-2"  y="146" width="24"  height="130" rx="10" fill="#5a3d20" stroke="#8a6040" strokeWidth="1.5" />
-      <rect x="178" y="146" width="24"  height="130" rx="10" fill="#5a3d20" stroke="#8a6040" strokeWidth="1.5" />
+      {/* Chair back */}
+      <rect x="-4"  y="122" width="208" height="18" rx="9" fill="#3a2810" stroke="#705030" strokeWidth="1.5" />
+      <rect x="-4"  y="140" width="22" height="128" rx="9" fill="#3a2810" stroke="#705030" strokeWidth="1" />
+      <rect x="182" y="140" width="22" height="128" rx="9" fill="#3a2810" stroke="#705030" strokeWidth="1" />
 
-      {/* ── Suit jacket body ── */}
-      {/* Main fill */}
-      <path d="M12 140 Q6 134 194 134 Q198 140 182 275 Q100 270 18 275 Z" fill={c.shirtColor} />
-      {/* Lighter side highlight */}
-      <path d="M12 140 L60 134 L100 158 L140 134 L188 140 L174 275 Q100 270 26 275 Z"
-        fill={c.shirtLight} opacity="0.18" />
+      {/* Suit body */}
+      <path d="M8 140 Q4 132 196 132 Q198 140 182 282 Q100 278 18 282 Z"
+        fill={`url(#bg-${uid})`} />
+      {/* Left edge highlight */}
+      <path d="M8 140 Q6 133 58 128 L100 152"
+        stroke="rgba(255,255,255,0.10)" strokeWidth="3" fill="none" strokeLinecap="round" />
 
-      {/* ── Left lapel ── */}
-      <path d="M78 134 L100 162 L72 134" fill={skin} />
-      {/* ── Right lapel ── */}
-      <path d="M122 134 L100 162 L128 134" fill={skin} />
-      {/* ── White shirt centre ── */}
-      <path d="M78 134 L100 162 L122 134 L116 134 L100 156 L84 134 Z" fill="#f5f5ef" />
+      {/* Lapels */}
+      <path d="M76 132 L100 160 L72 132" fill={skin} />
+      <path d="M124 132 L100 160 L128 132" fill={skin} />
+      <path d="M76 132 L100 160 L124 132 L118 132 L100 154 L82 132 Z" fill="#eeece8" />
 
-      {/* ── Tie (chairman) or shirt buttons ── */}
-      {name === 'chairman' ? (
-        <polygon points="95,162 105,162 102,196 100,200 98,196" fill={c.color} />
-      ) : (
-        <>
-          <circle cx="100" cy="170" r="3.5" fill={c.shirtLight} opacity="0.7" />
-          <circle cx="100" cy="184" r="3.5" fill={c.shirtLight} opacity="0.7" />
-        </>
-      )}
+      {/* Shirt buttons */}
+      <circle cx="100" cy="170" r="3.5" fill="rgba(0,0,0,0.28)" />
+      <circle cx="100" cy="185" r="3.5" fill="rgba(0,0,0,0.28)" />
 
-      {/* ── Left arm ── */}
+      {/* Left arm */}
       <motion.g
         animate={isWriting ? { rotate: [-4, 4, -4] } : {}}
         transition={{ duration: 0.35, repeat: Infinity }}
-        style={{ transformOrigin: '12px 148px' }}
+        style={{ transformOrigin: '8px 150px' }}
       >
-        <path d="M12 148 Q-12 172 -4 190" stroke={c.shirtColor} strokeWidth="30" strokeLinecap="round" fill="none" />
-        <ellipse cx="-5" cy="194" rx="17" ry="13" fill={skin} />
+        <path d="M8 150 Q-16 174 -8 194" stroke={c.suitMid} strokeWidth="28" strokeLinecap="round" fill="none" />
+        <ellipse cx="-9" cy="198" rx="16" ry="12" fill={skin} />
       </motion.g>
 
-      {/* ── Right arm (writing arm) ── */}
+      {/* Right arm */}
       <motion.g
-        animate={
-          isWriting  ? { rotate: [0, -18, 0], y: [0, -5, 0] } :
-          isJudging  ? { rotate: [-12, 12, -12] } : {}
-        }
+        animate={isWriting ? { rotate: [0, -18, 0], y: [0, -5, 0] } : {}}
         transition={{ duration: 0.4, repeat: Infinity }}
-        style={{ transformOrigin: '188px 148px' }}
+        style={{ transformOrigin: '192px 150px' }}
       >
-        <path d="M188 148 Q212 172 204 190" stroke={c.shirtColor} strokeWidth="30" strokeLinecap="round" fill="none" />
-        <ellipse cx="205" cy="194" rx="17" ry="13" fill={skin} />
+        <path d="M192 150 Q216 174 208 194" stroke={c.suitMid} strokeWidth="28" strokeLinecap="round" fill="none" />
+        <ellipse cx="209" cy="198" rx="16" ry="12" fill={skin} />
       </motion.g>
 
-      {/* ── Pen ── */}
+      {/* Pen when writing */}
       {isWriting && (
-        <motion.text x="210" y="182" fontSize="22"
-          animate={{ y: [182, 190, 182] }}
+        <motion.text x="212" y="188" fontSize="20"
+          animate={{ y: [188, 195, 188] }}
           transition={{ duration: 0.38, repeat: Infinity }}
           style={{ userSelect: 'none' }}
         >✏️</motion.text>
       )}
 
-      {/* ── Clipboard ── */}
-      {isJudging && (
-        <motion.text x="188" y="120" fontSize="30"
-          animate={{ rotate: [-12, 12, -12] }}
-          transition={{ duration: 0.5, repeat: Infinity }}
-          style={{ transformOrigin: '196px 122px', userSelect: 'none' }}
-        >📋</motion.text>
-      )}
+      {/* Neck */}
+      <rect x="84" y="116" width="32" height="20" rx="6" fill={skin} />
+      {/* Neck shadow */}
+      <ellipse cx="100" cy="128" rx="16" ry="5" fill="rgba(0,0,0,0.22)" />
 
-      {/* ── Neck ── */}
-      <rect x="83" y="116" width="34" height="20" rx="7" fill={skin} />
+      {/* Head: base sphere */}
+      <circle cx="100" cy="70" r="62" fill={`url(#hb-${uid})`} stroke={c.color} strokeWidth="2.5" />
+      {/* Head: 3D lighting */}
+      <circle cx="100" cy="70" r="62" fill={`url(#hl-${uid})`} style={{ mixBlendMode: 'overlay' } as React.CSSProperties} />
+      {/* Color glow ring */}
+      <circle cx="100" cy="70" r="64" fill="none" stroke={c.color} strokeWidth="10" opacity="0.08" />
 
-      {/* ── Head glow ── */}
-      <circle cx="100" cy="66" r="66" fill="none" stroke={c.color} strokeWidth="20" opacity="0.07" />
-      {/* ── Head circle ── */}
-      <circle cx="100" cy="66" r="62" fill={c.headBg} stroke={c.color} strokeWidth="3" />
-      {/* ── Logo ── */}
-      <g transform="translate(0, 16)">
-        {name === 'claude'   && <ClaudeLogo />}
-        {name === 'chatgpt'  && <ChatGPTLogo />}
-        {name === 'gemini'   && <GeminiLogo />}
-        {name === 'chairman' && <ChairmanLogo />}
-      </g>
+      {/* Logo */}
+      {name === 'claude'  && <ClaudeLogo />}
+      {name === 'chatgpt' && <ChatGPTLogo />}
+      {name === 'gemini'  && <GeminiLogo />}
+
+      {/* Specular highlight — makes head look like 3D sphere */}
+      <ellipse cx="76" cy="45" rx="22" ry="15"
+        fill="rgba(255,255,255,0.22)"
+        transform="rotate(-28 76 45)" />
     </svg>
   )
 }
 
-// ── Public component ──────────────────────────────────────────────────────────
-export default function Character({
-  name,
-  phase,
-  size = 170,
-  speech,
-  speechSide = 'right',
-}: CharacterProps) {
+// ── Public component ─────────────────────────────────────────────────────────
+export default function Character({ name, phase, size = 180, speech }: CharacterProps) {
   const c = CHAR_CONFIG[name]
-  const isWriting = phase === 'writing' && name !== 'chairman'
-  const isJudging = name === 'chairman' && phase === 'judging'
+  const isWriting = phase === 'writing'
 
   return (
     <motion.div
       className="flex flex-col items-center select-none relative"
-      animate={
-        isWriting  ? { y: [0, -6, 0], rotate: [0, -2, 2, 0] } :
-        isJudging  ? { scale: [1, 1.08, 1], y: [0, -9, 0] } :
-                     { y: [0, -7, 0] }
-      }
-      transition={
-        isWriting ? { duration: 0.4, repeat: Infinity } :
-        isJudging ? { duration: 0.9, repeat: Infinity } :
-                    { duration: 2.8, repeat: Infinity, ease: 'easeInOut' }
-      }
       style={{ width: size }}
+      animate={isWriting ? { y: [0, -6, 0], rotate: [0, -2, 2, 0] } : { y: [0, -7, 0] }}
+      transition={
+        isWriting
+          ? { duration: 0.4, repeat: Infinity }
+          : { duration: 3 + Math.random() * 0.5, repeat: Infinity, ease: 'easeInOut' }
+      }
     >
-      {/* Speech bubble */}
-      {speech && (
-        <motion.div
-          className="absolute z-20"
-          style={{
-            top: 0,
-            [speechSide === 'right' ? 'left' : 'right']: size * 0.85,
-            maxWidth: 180,
-          }}
-          initial={{ opacity: 0, scale: 0.8, y: 6 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.8, y: -6 }}
-        >
-          <div
+      {/* Speech bubble — always ABOVE the head, never covers other characters */}
+      <AnimatePresence>
+        {speech && (
+          <motion.div
             style={{
-              background: 'rgba(8,8,20,0.95)',
-              border: `1.5px solid ${c.color}80`,
-              borderRadius: 10,
-              color: '#e8e8e8',
-              fontFamily: 'sans-serif',
-              fontSize: 11,
-              padding: '7px 11px',
-              lineHeight: 1.5,
-              boxShadow: `0 4px 16px rgba(0,0,0,0.5), 0 0 8px ${c.color}20`,
-              whiteSpace: 'nowrap',
-              position: 'relative',
-            }}
-          >
-            {speech}
-            {/* Tail */}
-            <div style={{
               position: 'absolute',
-              bottom: -8,
-              [speechSide === 'right' ? 'left' : 'right']: 14,
-              width: 0, height: 0,
-              borderLeft: '7px solid transparent',
-              borderRight: '7px solid transparent',
-              borderTop: `8px solid ${c.color}80`,
-            }} />
-          </div>
-        </motion.div>
-      )}
+              bottom: '92%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 30,
+              minWidth: 130,
+              maxWidth: 210,
+              pointerEvents: 'none',
+            }}
+            initial={{ opacity: 0, scale: 0.8, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: -6 }}
+            transition={{ duration: 0.25 }}
+          >
+            <div style={{
+              background: 'rgba(8,8,22,0.96)',
+              border: `1.5px solid ${c.color}60`,
+              borderRadius: 10,
+              color: '#d8d8e8',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: 11,
+              fontWeight: 400,
+              padding: '8px 12px',
+              textAlign: 'center',
+              lineHeight: 1.5,
+              boxShadow: `0 8px 24px rgba(0,0,0,0.6), 0 0 12px ${c.color}15`,
+              position: 'relative',
+              whiteSpace: 'normal',
+            }}>
+              {speech}
+              {/* Tail pointing down */}
+              <div style={{
+                position: 'absolute',
+                bottom: -8,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 0, height: 0,
+                borderLeft: '8px solid transparent',
+                borderRight: '8px solid transparent',
+                borderTop: `8px solid ${c.color}60`,
+              }} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Body SVG */}
+      {/* Character body */}
       <div style={{ width: size, height: size * (310 / 200) }}>
-        <CharBody name={name} isWriting={isWriting} isJudging={isJudging} />
+        <CharSVG name={name} isWriting={isWriting} />
       </div>
 
       {/* Name badge */}
       <div style={{
+        marginTop: 8,
+        fontFamily: 'Inter, sans-serif',
+        fontWeight: 700,
+        fontSize: 11,
+        letterSpacing: '0.12em',
         color: c.color,
-        background: c.headBg,
-        border: `1px solid ${c.color}55`,
-        fontSize: 8,
-        fontFamily: "'Press Start 2P', cursive",
-        padding: '3px 9px',
-        borderRadius: 4,
-        marginTop: 4,
-        letterSpacing: 1,
+        background: `${c.headDark}f0`,
+        border: `1px solid ${c.color}35`,
+        padding: '4px 14px',
+        borderRadius: 6,
+        textTransform: 'uppercase',
       }}>
         {c.label}
       </div>
