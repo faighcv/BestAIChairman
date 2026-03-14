@@ -1,12 +1,10 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import Character from '@/components/Character'
-import ScoreCard from '@/components/ScoreCard'
+import Character, { CharName, CHAR_CONFIG } from '@/components/Character'
 import Podium from '@/components/Podium'
 
 type Phase = 'idle' | 'writing' | 'judging' | 'results'
-type AIName = 'claude' | 'chatgpt' | 'gemini'
 
 interface JudgeResult {
   score: number
@@ -18,43 +16,46 @@ interface JudgeResult {
 }
 
 interface BattleState {
-  answers: Record<AIName, string>
-  scores: Record<AIName, JudgeResult>
-  ranking: AIName[]
+  answers: Record<CharName, string>
+  scores: Record<CharName, JudgeResult>
+  ranking: CharName[]
   chairmanSpeech: string
 }
 
-const PHASE_MESSAGES: Record<Phase, string> = {
-  idle: '> AWAITING PROMPT...',
-  writing: '> AIs ARE WRITING...',
-  judging: '> CHAIRMAN IS JUDGING...',
-  results: '> RESULTS ARE IN!',
+interface ChatEntry {
+  color: string
+  text: string
 }
 
-const CHAT_LOG_IDLE = [
-  { color: '#C9A84C', text: 'Chairman: Welcome to AI BATTLE ROYALE! 👑' },
-  { color: '#888', text: 'System: Type a prompt to begin the battle.' },
-  { color: '#D97559', text: 'Claude: Ready and waiting... ◈' },
-  { color: '#10A37F', text: 'ChatGPT: Bring it on! ⬡' },
-  { color: '#4285F4', text: 'Gemini: I was born for this. ✦' },
+const IDLE_LOG: ChatEntry[] = [
+  { color: '#C9A84C', text: '[Chairman] Welcome to AI BATTLE ROYALE! 👑' },
+  { color: '#888', text: '[System] Type a prompt to begin.' },
+  { color: '#D97559', text: '<Claude> Ready and waiting... ◈' },
+  { color: '#10A37F', text: '<ChatGPT> Bring it on! ⬡' },
+  { color: '#4285F4', text: '<Gemini> I was born for this. ✦' },
+]
+
+const CRITERIA = [
+  { key: 'accuracy' as const, label: 'ACCURACY' },
+  { key: 'clarity' as const, label: 'CLARITY' },
+  { key: 'helpfulness' as const, label: 'HELP' },
+  { key: 'creativity' as const, label: 'STYLE' },
 ]
 
 export default function GamePage() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [prompt, setPrompt] = useState('')
   const [battle, setBattle] = useState<BattleState | null>(null)
-  const [chatLog, setChatLog] = useState(CHAT_LOG_IDLE)
+  const [chatLog, setChatLog] = useState<ChatEntry[]>(IDLE_LOG)
   const [writingDots, setWritingDots] = useState('')
-  const [showPodium, setShowPodium] = useState(false)
+  const [selectedAI, setSelectedAI] = useState<CharName>('claude')
   const inputRef = useRef<HTMLInputElement>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatLog])
 
-  // Animated dots
   useEffect(() => {
     if (phase === 'writing' || phase === 'judging') {
       const interval = setInterval(() => {
@@ -62,6 +63,7 @@ export default function GamePage() {
       }, 400)
       return () => clearInterval(interval)
     }
+    setWritingDots('')
   }, [phase])
 
   function addLog(color: string, text: string) {
@@ -70,20 +72,19 @@ export default function GamePage() {
 
   async function startBattle() {
     if (!prompt.trim() || phase !== 'idle') return
-
     const userPrompt = prompt.trim()
     setPrompt('')
+
     setChatLog([
-      ...CHAT_LOG_IDLE,
-      { color: '#fff', text: `You: ${userPrompt}` },
+      ...IDLE_LOG,
+      { color: '#ffffff', text: `<You> ${userPrompt}` },
       { color: '#ffff00', text: '⚡ BATTLE STARTING!' },
     ])
 
-    // Writing phase
     setPhase('writing')
-    addLog('#888', 'System: AIs are writing their answers...')
+    addLog('#888', '[System] AIs are writing their answers...')
 
-    let answers: Record<AIName, string>
+    let answers: Record<CharName, string>
     try {
       const res = await fetch('/api/battle', {
         method: 'POST',
@@ -92,21 +93,19 @@ export default function GamePage() {
       })
       answers = await res.json()
     } catch {
-      addLog('#f00', 'Error: Battle API failed.')
+      addLog('#ff4444', '[Error] Battle API failed.')
       setPhase('idle')
       return
     }
 
-    addLog('#D97559', 'Claude: Done! ◈')
-    addLog('#10A37F', 'ChatGPT: Submitted! ⬡')
-    addLog('#4285F4', 'Gemini: Finished! ✦')
+    addLog('#D97559', '<Claude> Answer submitted! ◈')
+    addLog('#10A37F', '<ChatGPT> Done! ⬡')
+    addLog('#4285F4', '<Gemini> Finished! ✦')
 
-    // Judging phase
     setPhase('judging')
-    addLog('#C9A84C', 'Chairman: *examines papers carefully* 🧐')
-    addLog('#888', 'System: Chairman is evaluating responses...')
+    addLog('#C9A84C', '[Chairman] *examines papers carefully* 🧐')
 
-    let judgment: { scores?: Record<AIName, JudgeResult>; ranking?: AIName[]; chairman_speech?: string } & Record<AIName, JudgeResult>
+    let judgment: Record<string, unknown>
     try {
       const res = await fetch('/api/judge', {
         method: 'POST',
@@ -115,281 +114,358 @@ export default function GamePage() {
       })
       judgment = await res.json()
     } catch {
-      addLog('#f00', 'Error: Judge API failed.')
+      addLog('#ff4444', '[Error] Judge API failed.')
       setPhase('idle')
       return
     }
 
-    const ranking = (judgment.ranking || ['claude', 'chatgpt', 'gemini']) as AIName[]
-    const scores: Record<AIName, JudgeResult> = {
-      claude: judgment.claude,
-      chatgpt: judgment.chatgpt,
-      gemini: judgment.gemini,
+    const ranking = (judgment.ranking as CharName[]) || (['claude', 'chatgpt', 'gemini'] as CharName[])
+    const scores = {
+      claude: judgment.claude as JudgeResult,
+      chatgpt: judgment.chatgpt as JudgeResult,
+      gemini: judgment.gemini as JudgeResult,
     }
-    const speech = judgment.chairman_speech || 'And the results are in!'
+    const speech = (judgment.chairman_speech as string) || 'And the results are in!'
 
     setBattle({ answers, scores, ranking, chairmanSpeech: speech })
+    setSelectedAI(ranking[0])
 
-    addLog('#C9A84C', `Chairman: ${speech}`)
+    addLog('#C9A84C', `[Chairman] ${speech}`)
     addLog('#FFD700', `🏆 WINNER: ${ranking[0].toUpperCase()}!`)
-    addLog('#888', `Rankings: ${ranking.map((r, i) => `${i + 1}. ${r}`).join(' | ')}`)
+    addLog('#888', `Rankings: ${ranking.map((r, i) => `${i + 1}. ${r}`).join(' > ')}`)
 
     setPhase('results')
-    setTimeout(() => setShowPodium(true), 500)
   }
 
   function resetGame() {
     setPhase('idle')
     setBattle(null)
-    setShowPodium(false)
-    setChatLog(CHAT_LOG_IDLE)
+    setSelectedAI('claude')
+    setChatLog(IDLE_LOG)
     setPrompt('')
-    inputRef.current?.focus()
+    setTimeout(() => inputRef.current?.focus(), 100)
   }
 
+  const phaseLabel =
+    phase === 'idle'
+      ? '> AWAITING PROMPT'
+      : phase === 'writing'
+      ? `> AIs WRITING${writingDots}`
+      : phase === 'judging'
+      ? `> CHAIRMAN JUDGING${writingDots}`
+      : '> RESULTS IN!'
+
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col stars-bg" style={{ background: '#080818' }}>
-      {/* Header */}
+    <div
+      className="h-screen w-screen overflow-hidden stars-bg relative"
+      style={{ background: '#080818' }}
+    >
+      {/* ── HEADER ── */}
       <div
-        className="flex-shrink-0 flex items-center justify-between px-4 py-2 border-b"
-        style={{ borderColor: '#C9A84C40', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
+        className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-2 border-b"
+        style={{ borderColor: '#C9A84C30', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', height: 40 }}
       >
         <motion.h1
-          className="text-[10px] font-game neon-text"
+          className="text-[9px] font-game neon-text"
           style={{ color: '#C9A84C' }}
           animate={{ opacity: [0.8, 1, 0.8] }}
           transition={{ duration: 2, repeat: Infinity }}
         >
           👑 AI CHAIRMAN BATTLE ROYALE
         </motion.h1>
-        <div className="flex items-center gap-3">
-          <div className="text-[8px] font-game" style={{ color: '#888' }}>
-            {PHASE_MESSAGES[phase]}
-            {(phase === 'writing' || phase === 'judging') && (
-              <span style={{ color: '#ffff00' }}>{writingDots}</span>
-            )}
+        <div className="flex items-center gap-4">
+          <div
+            className="text-[8px] font-game"
+            style={{ color: phase === 'writing' || phase === 'judging' ? '#ffff00' : '#888' }}
+          >
+            {phaseLabel}
           </div>
           {phase === 'results' && (
-            <button
-              className="btn-game text-[8px]"
-              style={{
-                color: '#C9A84C',
-                borderColor: '#C9A84C',
-                background: 'rgba(201,168,76,0.1)',
-              }}
+            <motion.button
+              className="btn-game text-[7px]"
+              style={{ color: '#C9A84C', borderColor: '#C9A84C', background: 'rgba(201,168,76,0.1)' }}
               onClick={resetGame}
+              whileTap={{ scale: 0.95 }}
             >
               ↺ NEW BATTLE
-            </button>
+            </motion.button>
           )}
         </div>
       </div>
 
-      {/* Main layout */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left: Game Arena */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Table Scene */}
-          <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
-            <AnimatePresence mode="wait">
-              {(phase === 'idle' || phase === 'writing' || phase === 'judging') && (
-                <motion.div
-                  key="table"
-                  className="relative flex flex-col items-center"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                >
-                  {/* Top row: Claude & ChatGPT */}
-                  <div className="flex gap-16 mb-[-20px] relative z-10">
-                    <Character name="claude" phase={phase} />
-                    <Character name="chatgpt" phase={phase} />
-                  </div>
+      {/* ── MAIN GAME AREA ── */}
+      <div className="absolute inset-0 pt-10 pb-12">
+        <AnimatePresence mode="wait">
 
-                  {/* Table */}
-                  <div
-                    className="table-surface rounded-full flex items-center justify-center relative"
-                    style={{ width: 280, height: 140 }}
-                  >
-                    {/* Table text */}
-                    <div className="text-center">
-                      {phase === 'idle' && (
-                        <motion.div
-                          className="text-[7px] font-game text-amber-600"
-                          animate={{ opacity: [0.4, 1, 0.4] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                        >
-                          ⚡ TYPE TO BEGIN ⚡
-                        </motion.div>
-                      )}
-                      {phase === 'writing' && (
-                        <motion.div
-                          className="text-[7px] font-game text-yellow-400"
-                          animate={{ opacity: [0.6, 1, 0.6] }}
-                          transition={{ duration: 0.5, repeat: Infinity }}
-                        >
-                          ✏️ WRITING{writingDots}
-                        </motion.div>
-                      )}
-                      {phase === 'judging' && (
-                        <motion.div
-                          className="text-[7px] font-game text-amber-400"
-                          animate={{ opacity: [0.6, 1, 0.6] }}
-                          transition={{ duration: 0.5, repeat: Infinity }}
-                        >
-                          📋 JUDGING{writingDots}
-                        </motion.div>
-                      )}
-                    </div>
-
-                    {/* Floating papers during judging */}
-                    {phase === 'judging' &&
-                      ['📄', '📄', '📄'].map((p, i) => (
-                        <motion.div
-                          key={i}
-                          className="absolute text-lg"
-                          initial={{ x: [-80, 0, 80][i], y: -30, opacity: 0 }}
-                          animate={{ x: 0, y: -60, opacity: [0, 1, 0] }}
-                          transition={{ duration: 1, delay: i * 0.3, repeat: Infinity, repeatDelay: 1 }}
-                        >
-                          {p}
-                        </motion.div>
-                      ))}
-                  </div>
-
-                  {/* Bottom row: Gemini & Chairman */}
-                  <div className="flex gap-16 mt-[-20px] relative z-10">
-                    <Character name="gemini" phase={phase} />
-                    <Character name="chairman" phase={phase} isJudging={phase === 'judging'} />
-                  </div>
-                </motion.div>
-              )}
-
-              {phase === 'results' && battle && showPodium && (
-                <motion.div
-                  key="results"
-                  className="w-full max-w-lg overflow-y-auto max-h-full"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  <Podium
-                    ranking={battle.ranking}
-                    scores={battle.scores}
-                    chairmanSpeech={battle.chairmanSpeech}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Score cards when results */}
-          {phase === 'results' && battle && (
+          {/* TABLE SCENE — idle / writing / judging */}
+          {phase !== 'results' && (
             <motion.div
-              className="flex-shrink-0 border-t p-3 grid grid-cols-3 gap-2 overflow-y-auto max-h-48"
-              style={{ borderColor: '#ffffff15', background: 'rgba(0,0,0,0.4)' }}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 }}
+              key="table"
+              className="w-full h-full flex items-center justify-center"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.4 }}
             >
-              {battle.ranking.map((ai, i) => (
-                <ScoreCard
-                  key={ai}
-                  name={ai}
-                  result={battle.scores[ai]}
-                  answer={battle.answers[ai]}
-                  rank={i + 1}
-                  delay={i * 0.15}
-                />
-              ))}
+              <div className="relative flex flex-col items-center">
+                {/* Top row */}
+                <div className="flex gap-20 mb-[-28px] relative z-10">
+                  <Character name="claude" phase={phase} />
+                  <Character name="chatgpt" phase={phase} />
+                </div>
+
+                {/* Round table */}
+                <div
+                  className="table-surface rounded-full flex items-center justify-center relative"
+                  style={{ width: 300, height: 150 }}
+                >
+                  {phase === 'idle' && (
+                    <motion.div
+                      className="text-[7px] font-game text-amber-600 text-center"
+                      animate={{ opacity: [0.4, 1, 0.4] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      ⚡ TYPE TO BEGIN ⚡
+                    </motion.div>
+                  )}
+                  {phase === 'writing' && (
+                    <motion.div
+                      className="text-[7px] font-game text-yellow-400 text-center"
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 0.5, repeat: Infinity }}
+                    >
+                      ✏️ WRITING{writingDots}
+                    </motion.div>
+                  )}
+                  {phase === 'judging' && (
+                    <motion.div
+                      className="text-[7px] font-game text-amber-400 text-center"
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 0.5, repeat: Infinity }}
+                    >
+                      📋 JUDGING{writingDots}
+                    </motion.div>
+                  )}
+
+                  {/* Floating papers during judging */}
+                  {phase === 'judging' &&
+                    ['📄', '📄', '📄'].map((p, i) => (
+                      <motion.div
+                        key={i}
+                        className="absolute text-xl"
+                        initial={{ x: [-90, 0, 90][i], y: -20, opacity: 0 }}
+                        animate={{ x: 0, y: -70, opacity: [0, 1, 0] }}
+                        transition={{ duration: 1.1, delay: i * 0.35, repeat: Infinity, repeatDelay: 0.8 }}
+                      >
+                        {p}
+                      </motion.div>
+                    ))}
+                </div>
+
+                {/* Bottom row */}
+                <div className="flex gap-20 mt-[-28px] relative z-10">
+                  <Character name="gemini" phase={phase} />
+                  <Character name="chairman" phase={phase} />
+                </div>
+              </div>
             </motion.div>
           )}
-        </div>
 
-        {/* Right: Chat sidebar */}
-        <div
-          className="w-72 flex-shrink-0 flex flex-col border-l"
-          style={{ borderColor: '#ffffff15', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
-        >
-          {/* Chat header */}
-          <div
-            className="flex-shrink-0 px-3 py-2 border-b"
-            style={{ borderColor: '#ffffff15' }}
-          >
-            <div className="text-[9px] font-game text-gray-400">💬 BATTLE CHAT</div>
-          </div>
-
-          {/* Chat log */}
-          <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-1">
-            {chatLog.map((entry, i) => (
-              <motion.div
-                key={i}
-                className="text-[8px] leading-relaxed break-words"
-                style={{ color: entry.color, fontFamily: 'sans-serif' }}
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                {entry.text}
-              </motion.div>
-            ))}
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Divider */}
-          <div className="border-t" style={{ borderColor: '#ffffff20' }} />
-
-          {/* Input area - Minecraft style */}
-          <div className="flex-shrink-0 p-2">
-            <div
-              className="minecraft-chat rounded p-2 flex flex-col gap-2"
+          {/* RESULTS SCENE */}
+          {phase === 'results' && battle && (
+            <motion.div
+              key="results"
+              className="w-full h-full flex flex-col overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
             >
-              <div className="text-[7px] font-game text-gray-500">
-                {phase === 'idle' ? '▶ ENTER YOUR PROMPT:' : `▶ ${PHASE_MESSAGES[phase]}`}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && startBattle()}
-                  disabled={phase !== 'idle'}
-                  placeholder={phase === 'idle' ? 'Type prompt...' : '...'}
-                  className="flex-1 bg-transparent outline-none text-[9px] text-white placeholder-gray-600"
-                  style={{ fontFamily: 'sans-serif' }}
-                  autoFocus
+              {/* Top: Podium */}
+              <div
+                className="flex-shrink-0 flex items-center justify-center py-3 border-b"
+                style={{ borderColor: '#ffffff10' }}
+              >
+                <Podium
+                  ranking={battle.ranking}
+                  scores={battle.scores}
+                  chairmanSpeech={battle.chairmanSpeech}
+                  selectedAI={selectedAI}
+                  onSelect={setSelectedAI}
                 />
-                <button
-                  className="btn-game text-[8px] flex-shrink-0"
-                  style={{
-                    color: phase === 'idle' ? '#00ff00' : '#666',
-                    borderColor: phase === 'idle' ? '#00ff00' : '#444',
-                    background: phase === 'idle' ? 'rgba(0,255,0,0.1)' : 'transparent',
-                    cursor: phase !== 'idle' ? 'not-allowed' : 'pointer',
-                  }}
-                  onClick={startBattle}
-                  disabled={phase !== 'idle'}
-                >
-                  ↵
-                </button>
               </div>
-            </div>
 
-            {/* Phase indicator */}
-            <div className="mt-2 flex gap-1 justify-center">
-              {(['idle', 'writing', 'judging', 'results'] as Phase[]).map((p) => (
-                <div
-                  key={p}
-                  className="h-1.5 rounded-full transition-all duration-500"
-                  style={{
-                    width: phase === p ? '24px' : '8px',
-                    background: phase === p ? '#C9A84C' : '#333',
-                    boxShadow: phase === p ? '0 0 6px #C9A84C' : 'none',
-                  }}
-                />
-              ))}
-            </div>
+              {/* Bottom: Response viewer */}
+              <div className="flex-1 overflow-hidden flex flex-col p-4 gap-3">
+                {/* AI selector tabs */}
+                <div className="flex gap-2 flex-shrink-0">
+                  {battle.ranking.map((ai, i) => {
+                    const info = CHAR_CONFIG[ai]
+                    return (
+                      <button
+                        key={ai}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded border transition-all text-[8px] font-game"
+                        style={{
+                          borderColor: selectedAI === ai ? info.color : info.color + '40',
+                          background: selectedAI === ai ? info.headBg : 'transparent',
+                          color: selectedAI === ai ? info.color : info.color + '80',
+                          boxShadow: selectedAI === ai ? `0 0 8px ${info.color}60` : 'none',
+                        }}
+                        onClick={() => setSelectedAI(ai)}
+                      >
+                        {['🥇', '🥈', '🥉'][i]} {info.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Response content */}
+                <AnimatePresence mode="wait">
+                  {battle.ranking.map((ai) =>
+                    selectedAI === ai ? (
+                      <motion.div
+                        key={ai}
+                        className="flex-1 overflow-hidden flex gap-3"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.25 }}
+                      >
+                        {/* Score panel */}
+                        <div
+                          className="flex-shrink-0 w-44 rounded-lg border p-3 flex flex-col gap-2"
+                          style={{ borderColor: CHAR_CONFIG[ai].color + '50', background: CHAR_CONFIG[ai].headBg + 'cc' }}
+                        >
+                          <div
+                            className="text-center text-[18px] font-game font-bold"
+                            style={{ color: CHAR_CONFIG[ai].color }}
+                          >
+                            {battle.scores[ai]?.score ?? '?'}/10
+                          </div>
+                          <div
+                            className="text-[7px] text-center leading-relaxed"
+                            style={{ fontFamily: 'sans-serif', color: '#ccc' }}
+                          >
+                            &ldquo;{battle.scores[ai]?.verdict}&rdquo;
+                          </div>
+                          <div className="flex flex-col gap-1.5 mt-1">
+                            {CRITERIA.map((c) => (
+                              <div key={c.key} className="flex flex-col gap-0.5">
+                                <div className="flex justify-between">
+                                  <span className="text-[6px] font-game text-gray-500">{c.label}</span>
+                                  <span className="text-[7px] font-game" style={{ color: CHAR_CONFIG[ai].color }}>
+                                    {battle.scores[ai]?.[c.key]}
+                                  </span>
+                                </div>
+                                <div className="w-full bg-gray-800 rounded-full h-1.5 overflow-hidden">
+                                  <motion.div
+                                    className="h-full rounded-full"
+                                    style={{ background: CHAR_CONFIG[ai].color }}
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${((battle.scores[ai]?.[c.key] ?? 0) / 10) * 100}%` }}
+                                    transition={{ duration: 0.8, delay: 0.2 }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Full response */}
+                        <div
+                          className="flex-1 rounded-lg border overflow-hidden flex flex-col"
+                          style={{ borderColor: CHAR_CONFIG[ai].color + '50', background: 'rgba(0,0,0,0.4)' }}
+                        >
+                          <div
+                            className="flex-shrink-0 px-4 py-2 border-b flex items-center gap-2"
+                            style={{ borderColor: CHAR_CONFIG[ai].color + '30' }}
+                          >
+                            <span className="text-lg">{CHAR_CONFIG[ai].logoChar}</span>
+                            <span className="text-[8px] font-game" style={{ color: CHAR_CONFIG[ai].color }}>
+                              {CHAR_CONFIG[ai].label} RESPONSE
+                            </span>
+                            {battle.ranking[0] === ai && (
+                              <span className="text-[7px] font-game ml-auto" style={{ color: '#FFD700' }}>
+                                🏆 WINNER
+                              </span>
+                            )}
+                          </div>
+                          <div
+                            className="flex-1 overflow-y-auto px-4 py-3 text-[11px] leading-relaxed text-gray-200"
+                            style={{ fontFamily: 'sans-serif', whiteSpace: 'pre-wrap' }}
+                          >
+                            {battle.answers[ai]}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ) : null
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* ── MINECRAFT CHAT OVERLAY ── */}
+      <div className="mc-chat-box">
+        {chatLog.slice(-10).map((entry, i) => (
+          <div key={i} className="mc-msg" style={{ color: entry.color }}>
+            {entry.text}
           </div>
+        ))}
+        <div ref={chatEndRef} />
+      </div>
+
+      {/* ── MINECRAFT INPUT BAR ── */}
+      <div className="mc-input-wrap">
+        <span className="text-[9px] font-game text-gray-500 flex-shrink-0">▶</span>
+        <input
+          ref={inputRef}
+          type="text"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && startBattle()}
+          disabled={phase !== 'idle'}
+          placeholder={
+            phase === 'idle'
+              ? 'Enter your prompt and press Enter...'
+              : phase === 'writing'
+              ? 'AIs are writing their answers...'
+              : phase === 'judging'
+              ? 'Chairman is judging...'
+              : 'Battle complete! Click ↺ NEW BATTLE'
+          }
+          className="flex-1 bg-transparent outline-none text-[11px] text-white placeholder-gray-600"
+          style={{ fontFamily: 'monospace' }}
+          autoFocus
+        />
+        <button
+          className="btn-game text-[8px] flex-shrink-0"
+          style={{
+            color: phase === 'idle' ? '#00ff00' : '#444',
+            borderColor: phase === 'idle' ? '#00ff00' : '#333',
+            background: phase === 'idle' ? 'rgba(0,255,0,0.08)' : 'transparent',
+            cursor: phase !== 'idle' ? 'not-allowed' : 'pointer',
+          }}
+          onClick={startBattle}
+          disabled={phase !== 'idle'}
+        >
+          ↵ SEND
+        </button>
+
+        {/* Phase dots */}
+        <div className="flex gap-1 flex-shrink-0">
+          {(['idle', 'writing', 'judging', 'results'] as Phase[]).map((p) => (
+            <div
+              key={p}
+              className="h-2 rounded-full transition-all duration-500"
+              style={{
+                width: phase === p ? '20px' : '7px',
+                background: phase === p ? '#C9A84C' : '#333',
+                boxShadow: phase === p ? '0 0 6px #C9A84C' : 'none',
+              }}
+            />
+          ))}
         </div>
       </div>
     </div>

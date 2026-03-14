@@ -1,191 +1,210 @@
 'use client'
 import { motion } from 'framer-motion'
 
+export type CharName = 'claude' | 'chatgpt' | 'gemini' | 'chairman'
 type Phase = 'idle' | 'writing' | 'judging' | 'results'
 
 interface CharacterProps {
-  name: 'claude' | 'chatgpt' | 'gemini' | 'chairman'
+  name: CharName
   phase: Phase
-  isJudging?: boolean
+  size?: 'normal' | 'small'
 }
 
-const CHARS = {
+export const CHAR_CONFIG: Record<CharName, {
+  color: string
+  headBg: string
+  shirtColor: string
+  label: string
+  logoChar: string
+}> = {
   claude: {
     color: '#D97559',
-    bg: 'rgba(217,117,89,0.15)',
-    border: '#D97559',
+    headBg: '#1c0d08',
+    shirtColor: '#7a2e14',
     label: 'CLAUDE',
-    emoji: '🤖',
-    bodyColor: '#D97559',
     logoChar: '◈',
   },
   chatgpt: {
     color: '#10A37F',
-    bg: 'rgba(16,163,127,0.15)',
-    border: '#10A37F',
+    headBg: '#071a14',
+    shirtColor: '#065040',
     label: 'CHATGPT',
-    emoji: '🤖',
-    bodyColor: '#10A37F',
     logoChar: '⬡',
   },
   gemini: {
     color: '#4285F4',
-    bg: 'rgba(66,133,244,0.15)',
-    border: '#4285F4',
+    headBg: '#080f28',
+    shirtColor: '#1040a0',
     label: 'GEMINI',
-    emoji: '🤖',
-    bodyColor: '#4285F4',
     logoChar: '✦',
   },
   chairman: {
     color: '#C9A84C',
-    bg: 'rgba(201,168,76,0.15)',
-    border: '#C9A84C',
+    headBg: '#0a0a18',
+    shirtColor: '#15152a',
     label: 'CHAIRMAN',
-    emoji: '👑',
-    bodyColor: '#2a2a2a',
     logoChar: '♛',
   },
 }
 
-export default function Character({ name, phase, isJudging }: CharacterProps) {
-  const char = CHARS[name]
-  const isWriting = phase === 'writing' && name !== 'chairman'
-  const isChairmanJudging = name === 'chairman' && phase === 'judging'
+function StickmanSVG({
+  name,
+  isWriting,
+  isJudging,
+  scale = 1,
+}: {
+  name: CharName
+  isWriting: boolean
+  isJudging: boolean
+  scale?: number
+}) {
+  const c = CHAR_CONFIG[name]
+  const skin = '#e0a87a'
+  const w = 100 * scale
+  const h = 148 * scale
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      {/* Body */}
-      <motion.div
-        className="relative flex flex-col items-center"
+    <svg width={w} height={h} viewBox="0 0 100 148" overflow="visible">
+      {/* Chair back (wooden) */}
+      <rect x="8" y="50" width="84" height="9" rx="4.5" fill="#3d2b18" stroke="#7a5535" strokeWidth="1.5" />
+      <rect x="8" y="59" width="12" height="68" rx="5" fill="#3d2b18" stroke="#7a5535" strokeWidth="1" />
+      <rect x="80" y="59" width="12" height="68" rx="5" fill="#3d2b18" stroke="#7a5535" strokeWidth="1" />
+
+      {/* Crown above chairman */}
+      {name === 'chairman' && (
+        <text x="50" y="10" textAnchor="middle" fontSize="16" style={{ userSelect: 'none' }}>
+          👑
+        </text>
+      )}
+
+      {/* HEAD outer glow */}
+      <circle cx="50" cy="30" r="28" fill="none" stroke={c.color} strokeWidth="10" opacity="0.1" />
+      {/* HEAD circle */}
+      <circle cx="50" cy="30" r="26" fill={c.headBg} stroke={c.color} strokeWidth="2.5" />
+      {/* AI Logo */}
+      <text
+        x="50"
+        y="39"
+        textAnchor="middle"
+        fontSize="26"
+        fill={c.color}
+        fontWeight="bold"
+        style={{ userSelect: 'none' }}
+      >
+        {c.logoChar}
+      </text>
+
+      {/* NECK */}
+      <rect x="43" y="56" width="14" height="10" rx="3" fill={skin} />
+
+      {/* SHIRT / TORSO */}
+      <rect
+        x="22"
+        y="65"
+        width="56"
+        height="36"
+        rx="7"
+        fill={c.shirtColor}
+        stroke={c.color}
+        strokeWidth="1.5"
+        opacity="0.92"
+      />
+      {/* Collar V */}
+      <path d={`M38 65 L50 77 L62 65`} fill={skin} stroke={c.shirtColor} strokeWidth="1" />
+
+      {/* Tie for chairman */}
+      {name === 'chairman' && (
+        <polygon points="47,77 53,77 51,96 50,99 49,96" fill={c.color} opacity="0.85" />
+      )}
+
+      {/* LEFT ARM */}
+      <motion.g
+        animate={isWriting ? { rotate: [-4, 4, -4] } : {}}
+        transition={{ duration: 0.35, repeat: Infinity }}
+        style={{ transformOrigin: '22px 76px' }}
+      >
+        <rect x="3" y="73" width="20" height="9" rx="4.5" fill={c.shirtColor} stroke={c.color} strokeWidth="1" opacity="0.9" />
+        <rect x="2" y="73" width="12" height="9" rx="4.5" fill={skin} />
+      </motion.g>
+
+      {/* RIGHT ARM */}
+      <motion.g
         animate={
           isWriting
-            ? { y: [0, -3, 0], rotate: [0, -1, 1, 0] }
-            : isChairmanJudging
-            ? { scale: [1, 1.05, 1], y: [0, -5, 0] }
-            : { y: [0, -4, 0] }
+            ? { rotate: [0, -14, 0], y: [0, -3, 0] }
+            : isJudging
+            ? { rotate: [-10, 10, -10] }
+            : {}
         }
-        transition={
-          isWriting
-            ? { duration: 0.4, repeat: Infinity }
-            : isChairmanJudging
-            ? { duration: 0.8, repeat: Infinity }
-            : { duration: 2, repeat: Infinity, ease: 'easeInOut' }
-        }
+        transition={{ duration: 0.4, repeat: Infinity }}
+        style={{ transformOrigin: '78px 76px' }}
       >
-        {/* Crown for chairman */}
-        {name === 'chairman' && (
-          <div className="text-lg mb-[-2px]" style={{ filter: `drop-shadow(0 0 6px ${char.color})` }}>
-            👑
-          </div>
-        )}
+        <rect x="77" y="73" width="20" height="9" rx="4.5" fill={c.shirtColor} stroke={c.color} strokeWidth="1" opacity="0.9" />
+        <rect x="86" y="73" width="12" height="9" rx="4.5" fill={skin} />
+      </motion.g>
 
-        {/* Head with logo */}
-        <div
-          className="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold border-2 relative"
-          style={{
-            background: char.bg,
-            borderColor: char.border,
-            boxShadow: `0 0 12px ${char.color}60`,
-            color: char.color,
-          }}
+      {/* PEN when writing */}
+      {isWriting && (
+        <motion.text
+          x="96"
+          y="68"
+          fontSize="13"
+          animate={{ y: [68, 74, 68] }}
+          transition={{ duration: 0.35, repeat: Infinity }}
+          style={{ userSelect: 'none' }}
         >
-          {/* Logo SVG */}
-          {name === 'claude' && <ClaudeLogo />}
-          {name === 'chatgpt' && <ChatGPTLogo />}
-          {name === 'gemini' && <GeminiLogo />}
-          {name === 'chairman' && <span style={{ fontSize: '1.4rem' }}>🧑‍💼</span>}
+          ✏️
+        </motion.text>
+      )}
 
-          {/* Writing indicator */}
-          {isWriting && (
-            <motion.div
-              className="absolute -top-2 -right-2 text-xs"
-              animate={{ opacity: [0, 1, 0], scale: [0.8, 1.2, 0.8] }}
-              transition={{ duration: 0.6, repeat: Infinity }}
-            >
-              ✏️
-            </motion.div>
-          )}
-        </div>
+      {/* CLIPBOARD when judging */}
+      {isJudging && (
+        <motion.text
+          x="78"
+          y="52"
+          fontSize="18"
+          animate={{ rotate: [-10, 10, -10] }}
+          transition={{ duration: 0.55, repeat: Infinity }}
+          style={{ transformOrigin: '84px 52px', userSelect: 'none' }}
+        >
+          📋
+        </motion.text>
+      )}
+    </svg>
+  )
+}
 
-        {/* Torso */}
-        <div
-          className="w-10 h-8 rounded-b-lg mt-[-2px]"
-          style={{ background: char.bodyColor, border: `2px solid ${char.border}`, borderTop: 'none' }}
-        />
+export default function Character({ name, phase, size = 'normal' }: CharacterProps) {
+  const c = CHAR_CONFIG[name]
+  const isWriting = phase === 'writing' && name !== 'chairman'
+  const isJudging = name === 'chairman' && phase === 'judging'
+  const svgScale = size === 'small' ? 0.65 : 1
 
-        {/* Paper when writing */}
-        {isWriting && (
-          <motion.div
-            className="absolute -right-8 top-8 w-8 h-10 paper rounded-sm flex flex-col gap-1 p-1"
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{ opacity: 1, scale: 1, rotate: [-2, 2, -2] }}
-            transition={{ rotate: { duration: 0.3, repeat: Infinity } }}
-          >
-            {[...Array(4)].map((_, i) => (
-              <motion.div
-                key={i}
-                className="h-0.5 rounded bg-gray-400"
-                initial={{ width: 0 }}
-                animate={{ width: `${40 + i * 10}%` }}
-                transition={{ delay: i * 0.3, duration: 0.5 }}
-              />
-            ))}
-          </motion.div>
-        )}
-
-        {/* Judging papers for chairman */}
-        {isChairmanJudging && (
-          <motion.div
-            className="absolute -left-10 top-4 text-2xl"
-            animate={{ rotate: [-5, 5, -5], x: [-2, 2, -2] }}
-            transition={{ duration: 0.5, repeat: Infinity }}
-          >
-            📋
-          </motion.div>
-        )}
-      </motion.div>
-
-      {/* Name tag */}
+  return (
+    <motion.div
+      className="flex flex-col items-center gap-1 select-none"
+      animate={
+        isWriting
+          ? { y: [0, -4, 0], rotate: [0, -1.5, 1.5, 0] }
+          : isJudging
+          ? { scale: [1, 1.08, 1], y: [0, -7, 0] }
+          : { y: [0, -5, 0] }
+      }
+      transition={
+        isWriting
+          ? { duration: 0.4, repeat: Infinity }
+          : isJudging
+          ? { duration: 0.9, repeat: Infinity }
+          : { duration: 2.5, repeat: Infinity, ease: 'easeInOut' }
+      }
+    >
+      <StickmanSVG name={name} isWriting={isWriting} isJudging={isJudging} scale={svgScale} />
       <div
-        className="text-[8px] font-game px-2 py-0.5 rounded border"
-        style={{ color: char.color, borderColor: char.border, background: char.bg }}
+        className="text-[7px] font-game px-2 py-0.5 rounded"
+        style={{ color: c.color, background: c.headBg + 'cc', border: `1px solid ${c.color}50` }}
       >
-        {char.label}
+        {c.label}
       </div>
-    </div>
-  )
-}
-
-function ClaudeLogo() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <circle cx="14" cy="14" r="12" fill="#D97559" opacity="0.2" />
-      <text x="50%" y="55%" textAnchor="middle" dominantBaseline="middle" fontSize="16" fill="#D97559">
-        ◈
-      </text>
-    </svg>
-  )
-}
-
-function ChatGPTLogo() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <circle cx="14" cy="14" r="12" fill="#10A37F" opacity="0.2" />
-      <text x="50%" y="55%" textAnchor="middle" dominantBaseline="middle" fontSize="16" fill="#10A37F">
-        ⬡
-      </text>
-    </svg>
-  )
-}
-
-function GeminiLogo() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <circle cx="14" cy="14" r="12" fill="#4285F4" opacity="0.2" />
-      <text x="50%" y="55%" textAnchor="middle" dominantBaseline="middle" fontSize="16" fill="#4285F4">
-        ✦
-      </text>
-    </svg>
+    </motion.div>
   )
 }
