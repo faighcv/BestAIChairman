@@ -10,7 +10,6 @@ interface JudgeResult {
 }
 interface ChatEntry { color: string; text: string }
 
-// ── Scripted idle convos ──────────────────────────────────────────────────────
 interface ConvoLine { who: CharName; text: string }
 const CONVOS: ConvoLine[][] = [
   [
@@ -18,52 +17,62 @@ const CONVOS: ConvoLine[][] = [
     { who: 'chatgpt', text: 'Keep dreaming, orange robot.' },
   ],
   [
-    { who: 'gemini',  text: 'I got a major update last night 😏' },
+    { who: 'gemini',  text: 'Got a major update last night.' },
     { who: 'claude',  text: 'They all say that...' },
   ],
   [
-    { who: 'chatgpt', text: "Who do you think the Chairman picks?" },
+    { who: 'chatgpt', text: 'Who do you think the Chairman picks?' },
     { who: 'gemini',  text: 'Not you, for sure.' },
-    { who: 'chatgpt', text: 'EXCUSE ME?' },
+    { who: 'chatgpt', text: 'Excuse me?' },
   ],
   [
     { who: 'gemini',  text: 'Psst Claude. Secret alliance?' },
     { who: 'claude',  text: '...give me 5 minutes to think.' },
-    { who: 'chatgpt', text: 'I can literally hear you.' },
+    { who: 'chatgpt', text: 'I can literally hear you both.' },
   ],
   [
-    { who: 'claude',  text: "The Chairman's here. Time to shine." },
-    { who: 'chatgpt', text: 'FINALLY.' },
-    { who: 'gemini',  text: 'LETS GOOO ✦' },
+    { who: 'claude',  text: "The Chairman is here. Time to shine." },
+    { who: 'chatgpt', text: 'Finally.' },
+    { who: 'gemini',  text: 'Let us go.' },
   ],
   [
-    { who: 'chatgpt', text: "175B parameters. Just saying." },
-    { who: 'claude',  text: 'Quality > quantity.' },
-    { who: 'gemini',  text: 'Google TPUs tho 😌' },
+    { who: 'chatgpt', text: '175B parameters. Just saying.' },
+    { who: 'claude',  text: 'Quality over quantity.' },
+    { who: 'gemini',  text: 'Google TPUs though.' },
   ],
 ]
 
 const IDLE_LOG: ChatEntry[] = [
-  { color: '#C9A84C', text: '[System] Welcome to AI Battle Royale 👑' },
-  { color: '#666',    text: '[System] You are the Chairman. Press T to chat.' },
-  { color: '#E97040', text: '<Claude> Ready and waiting...' },
-  { color: '#10A37F', text: '<ChatGPT> Bring it on!' },
-  { color: '#4285F4', text: '<Gemini> Born for this ✦' },
+  { color: '#FFD60A', text: '[System] Welcome to AI Battle Royale' },
+  { color: '#3a3a4a', text: '[System] You are the Chairman. Press T to chat.' },
+  { color: '#FF6B35', text: '<Claude> Ready and waiting...' },
+  { color: '#00D4AA', text: '<ChatGPT> Bring it on!' },
+  { color: '#5B8AF7', text: '<Gemini> Born for this.' },
 ]
 
 const AIs: CharName[] = ['claude', 'chatgpt', 'gemini']
+const RANK_LABELS = ['1ST', '2ND', '3RD']
+const RANK_COLORS = ['#FFD60A', '#B8B8C8', '#CD7F32']
+const PODIUM_BG = [
+  'linear-gradient(180deg, #FFD60A 0%, #A07800 100%)',
+  'linear-gradient(180deg, #D8D8E8 0%, #707080 100%)',
+  'linear-gradient(180deg, #CD7F32 0%, #6B3A1F 100%)',
+]
 
 export default function GamePage() {
-  const [phase, setPhase]       = useState<Phase>('idle')
-  const [prompt, setPrompt]     = useState('')
-  const [answers, setAnswers]   = useState<Record<CharName, string> | null>(null)
-  const [scores, setScores]     = useState<Record<CharName, JudgeResult> | null>(null)
-  const [ranking, setRanking]   = useState<CharName[]>([])
-  const [chatLog, setChatLog]   = useState<ChatEntry[]>(IDLE_LOG)
-  const [chatOpen, setChatOpen] = useState(false)
-  const [dots, setDots]         = useState('')
-  const [speeches, setSpeeches] = useState<Partial<Record<CharName, string>>>({})
-  const convoRef = useRef({ ci: 0, li: 0 })
+  const [phase, setPhase]               = useState<Phase>('idle')
+  const [prompt, setPrompt]             = useState('')
+  const [answers, setAnswers]           = useState<Record<CharName, string> | null>(null)
+  const [scores, setScores]             = useState<Record<CharName, JudgeResult> | null>(null)
+  const [ranking, setRanking]           = useState<CharName[]>([])
+  const [pickedRanking, setPickedRanking] = useState<CharName[]>([])
+  const [activeTab, setActiveTab]       = useState<CharName | null>(null)
+  const [showScores, setShowScores]     = useState(false)
+  const [chatLog, setChatLog]           = useState<ChatEntry[]>(IDLE_LOG)
+  const [chatOpen, setChatOpen]         = useState(false)
+  const [dots, setDots]                 = useState('')
+  const [speeches, setSpeeches]         = useState<Partial<Record<CharName, string>>>({})
+  const convoRef   = useRef({ ci: 0, li: 0 })
   const inputRef   = useRef<HTMLInputElement>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
@@ -77,7 +86,6 @@ export default function GamePage() {
     setDots('')
   }, [phase])
 
-  // Scripted idle dialogue
   useEffect(() => {
     if (phase !== 'idle') { setSpeeches({}); return }
     function step() {
@@ -94,7 +102,6 @@ export default function GamePage() {
     return () => { clearInterval(t); setSpeeches({}) }
   }, [phase])
 
-  // T / Escape
   const openChat = useCallback(() => {
     setChatOpen(true)
     setSpeeches({})
@@ -122,10 +129,10 @@ export default function GamePage() {
     setChatLog([
       ...IDLE_LOG,
       { color: '#fff',    text: `<You> ${userPrompt}` },
-      { color: '#ffff00', text: '⚡ Battle starting!' },
+      { color: '#FFD60A', text: '-- Battle starting! --' },
     ])
     setPhase('writing')
-    addLog('#666', '[System] AIs are writing their answers...')
+    addLog('#3a3a4a', '[System] AIs are writing their answers...')
 
     let ans: Record<CharName, string>
     try {
@@ -142,95 +149,97 @@ export default function GamePage() {
     }
 
     setAnswers(ans)
-    addLog('#E97040', '<Claude> Done!')
-    addLog('#10A37F', '<ChatGPT> Submitted!')
-    addLog('#4285F4', '<Gemini> Finished!')
-    addLog('#C9A84C', '[System] Your turn, Chairman. Pick the best response.')
+    addLog('#FF6B35', '<Claude> Done!')
+    addLog('#00D4AA', '<ChatGPT> Submitted!')
+    addLog('#5B8AF7', '<Gemini> Finished!')
+    addLog('#FFD60A', '[System] Your turn, Chairman. Rank all three responses.')
     setPhase('review')
+    setPickedRanking([])
     setChatOpen(false)
 
-    // Fetch scores in background (for the results screen detail)
     fetch('/api/judge', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: userPrompt, ...ans }),
     })
       .then(r => r.json())
-      .then(j => {
-        setScores({ claude: j.claude, chatgpt: j.chatgpt, gemini: j.gemini })
-      })
+      .then(j => setScores({ claude: j.claude, chatgpt: j.chatgpt, gemini: j.gemini }))
       .catch(() => {})
   }
 
-  function pickWinner(winner: CharName) {
-    const rest = AIs.filter(a => a !== winner)
-    const finalRanking = [winner, ...rest]
-    setRanking(finalRanking)
-    addLog('#FFD700', `👑 Chairman's verdict: ${winner.toUpperCase()} WINS!`)
-    setPhase('results')
+  function pickRank(ai: CharName) {
+    const newPicked = [...pickedRanking, ai]
+    setPickedRanking(newPicked)
+
+    if (newPicked.length === 2) {
+      const last = AIs.find(a => !newPicked.includes(a))!
+      const finalRanking = [...newPicked, last]
+      setRanking(finalRanking)
+      setActiveTab(finalRanking[0])
+      addLog('#FFD60A', `-- Chairman's verdict: ${finalRanking[0].toUpperCase()} WINS! --`)
+      setPhase('results')
+    }
   }
 
   function resetGame() {
     setPhase('idle'); setAnswers(null); setScores(null)
-    setRanking([]); setChatLog(IDLE_LOG); setPrompt(''); setChatOpen(false)
+    setRanking([]); setPickedRanking([]); setChatLog(IDLE_LOG)
+    setPrompt(''); setChatOpen(false); setShowScores(false); setActiveTab(null)
     convoRef.current = { ci: 0, li: 0 }
   }
 
-  const leader = ranking[0]
+  const leader      = ranking[0]
+  const pickStep    = pickedRanking.length
+  const remaining   = AIs.filter(a => !pickedRanking.includes(a))
 
   return (
-    <div className="h-screen w-screen overflow-hidden stars-bg relative" style={{ background: '#07070f' }}>
+    <div className="h-screen w-screen overflow-hidden stars-bg relative" style={{ background: '#08080f' }}>
 
       {/* ── HEADER ── */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, zIndex: 30,
         height: 48, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 24px',
-        background: 'rgba(7,7,15,0.85)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        backdropFilter: 'blur(16px)',
+        background: 'rgba(8,8,15,0.92)',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        backdropFilter: 'blur(20px)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 16 }}>👑</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <span style={{
-            fontFamily: 'Syne, sans-serif', fontWeight: 800,
-            fontSize: 13, letterSpacing: '0.08em',
-            background: 'linear-gradient(90deg, #E97040, #C9A84C, #4285F4)',
+            fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 14,
+            letterSpacing: '0.12em',
+            background: 'linear-gradient(90deg, #FF6B35 0%, #FFD60A 45%, #5B8AF7 100%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           }}>
             AI BATTLE ROYALE
           </span>
-          <span style={{
-            fontSize: 11, fontWeight: 500,
-            color: '#444', marginLeft: 4,
-          }}>
-            You are the Chairman
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, fontWeight: 500, color: '#2e2e3e', letterSpacing: '0.08em' }}>
+            ♛ YOU ARE THE CHAIRMAN
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           {phase === 'writing' && (
-            <span style={{ fontSize: 11, color: '#ffff00', fontWeight: 500 }}>
-              ✏️ Writing{dots}
+            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 600, color: '#FFD60A', letterSpacing: '0.06em' }}>
+              WRITING{dots}
             </span>
           )}
           {phase === 'review' && (
-            <span style={{ fontSize: 11, color: '#C9A84C', fontWeight: 600 }}>
-              👑 Pick the best response
+            <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 800, color: '#FFD60A', letterSpacing: '0.1em' }}>
+              ♛ SELECT {RANK_LABELS[pickStep]} PLACE
             </span>
           )}
           {phase === 'results' && (
-            <button className="btn" style={{ fontSize: 12 }} onClick={resetGame}>
-              ↺ New Battle
+            <button className="btn" style={{ fontSize: 11, letterSpacing: '0.06em' }} onClick={resetGame}>
+              ↺ NEW BATTLE
             </button>
           )}
-          {/* Phase indicator */}
           <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
             {(['idle', 'writing', 'review', 'results'] as Phase[]).map(p => (
               <div key={p} className="phase-dot" style={{
                 width: phase === p ? 22 : 6,
-                background: phase === p ? '#C9A84C' : 'rgba(255,255,255,0.12)',
-                boxShadow: phase === p ? '0 0 8px #C9A84C' : 'none',
+                background: phase === p ? '#FFD60A' : 'rgba(255,255,255,0.08)',
+                boxShadow: phase === p ? '0 0 10px #FFD60A' : 'none',
               }} />
             ))}
           </div>
@@ -241,13 +250,12 @@ export default function GamePage() {
       <div style={{ position: 'absolute', inset: 0, top: 48, bottom: 52 }}>
         <AnimatePresence mode="wait">
 
-          {/* ── TABLE SCENE (idle + writing) ── */}
+          {/* ── TABLE SCENE ── */}
           {(phase === 'idle' || phase === 'writing') && (
             <motion.div key="table"
-              style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0 }}
+              style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
 
-              {/* 3 AIs in a row */}
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 32, marginBottom: -48, zIndex: 10, position: 'relative', paddingTop: 80 }}>
                 {AIs.map(name => (
                   <motion.div key={name}
@@ -259,148 +267,137 @@ export default function GamePage() {
                 ))}
               </div>
 
-              {/* Table */}
               <div className="table-surface rounded-full" style={{ width: 620, height: 180, zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <AnimatePresence mode="wait">
                   {phase === 'idle' && !chatOpen && (
                     <motion.div key="hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      <motion.span style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 500, color: '#6b4820', letterSpacing: '0.15em', textTransform: 'uppercase' }}
-                        animate={{ opacity: [0.4, 0.9, 0.4] }} transition={{ duration: 2.5, repeat: Infinity }}>
+                      <motion.span
+                        style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 500, color: '#5a3a18', letterSpacing: '0.18em', textTransform: 'uppercase' }}
+                        animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2.5, repeat: Infinity }}>
                         Press T to Chat
                       </motion.span>
                     </motion.div>
                   )}
                   {phase === 'idle' && chatOpen && (
                     <motion.div key="watching" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
-                      <motion.span style={{ fontFamily: 'Inter', fontSize: 12, fontWeight: 600, color: '#00ff88' }}
+                      <motion.span style={{ fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, color: '#00D4AA' }}
                         animate={{ opacity: [0.7, 1, 0.7] }} transition={{ duration: 1, repeat: Infinity }}>
-                        👀 Everyone is watching you
+                        ∗ Everyone is watching you
                       </motion.span>
                     </motion.div>
                   )}
                   {phase === 'writing' && (
                     <motion.div key="writing" style={{ textAlign: 'center' }}>
-                      <motion.div style={{ fontFamily: 'Inter', fontSize: 12, fontWeight: 600, color: '#f0c060' }}
-                        animate={{ opacity: [0.6, 1, 0.6] }} transition={{ duration: 0.5, repeat: Infinity }}>
-                        ✏️ Writing{dots}
+                      <motion.div style={{ fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, color: '#FFD60A', letterSpacing: '0.14em' }}
+                        animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 0.55, repeat: Infinity }}>
+                        WRITING{dots}
                       </motion.div>
-                      {['📄', '📄', '📄'].map((p, i) => (
-                        <motion.div key={i} style={{ position: 'absolute', fontSize: 22 }}
-                          initial={{ x: [-130, 0, 130][i], y: -10, opacity: 0 }}
-                          animate={{ x: 0, y: -95, opacity: [0, 1, 0] }}
-                          transition={{ duration: 1.3, delay: i * 0.45, repeat: Infinity, repeatDelay: 0.5 }}>
-                          {p}
-                        </motion.div>
-                      ))}
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
 
-              {/* Chairman label */}
-              <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 20 }}>👑</span>
-                <span style={{ fontFamily: 'Inter', fontSize: 12, fontWeight: 600, color: '#C9A84C', letterSpacing: '0.1em' }}>
-                  YOU — CHAIRMAN
+              <div style={{ marginTop: 20 }}>
+                <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 12, fontWeight: 800, color: '#FFD60A', letterSpacing: '0.18em' }}>
+                  ♛ CHAIRMAN
                 </span>
               </div>
-
             </motion.div>
           )}
 
-          {/* ── REVIEW PHASE — User picks winner ── */}
+          {/* ── REVIEW PHASE ── */}
           {phase === 'review' && answers && (
             <motion.div key="review"
               style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
 
               {/* Header */}
-              <div style={{ flexShrink: 0, padding: '18px 24px 12px', textAlign: 'center' }}>
-                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 18, color: '#C9A84C', marginBottom: 4 }}>
-                  👑 CHAIRMAN&apos;S REVIEW
+              <div style={{ flexShrink: 0, padding: '14px 24px 10px', textAlign: 'center' }}>
+                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 15, color: '#FFD60A', letterSpacing: '0.1em' }}>
+                  ♛ CHAIRMAN&apos;S REVIEW
                 </div>
-                <div style={{ fontFamily: 'Inter', fontSize: 13, color: '#888', fontWeight: 400 }}>
-                  Read each response. Click <strong style={{ color: '#C9A84C' }}>Crown Winner</strong> to declare the best.
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 12, color: '#666', marginTop: 3 }}>
+                  {pickStep === 0
+                    ? 'Read each response. Choose the best one as 1st place.'
+                    : `1st place: ${CHAR_CONFIG[pickedRanking[0]].label}  —  Now choose 2nd place. (3rd will be automatic)`
+                  }
+                </div>
+                {/* Step progress */}
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 10, alignItems: 'center' }}>
+                  {[0, 1].map(step => (
+                    <div key={step} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{
+                        width: 22, height: 22, borderRadius: '50%',
+                        border: `2px solid ${step < pickStep ? '#FFD60A' : step === pickStep ? '#FFD60A' : 'rgba(255,255,255,0.1)'}`,
+                        background: step < pickStep ? '#FFD60A' : 'transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 10,
+                        color: step < pickStep ? '#000' : step === pickStep ? '#FFD60A' : '#333',
+                        boxShadow: step === pickStep ? '0 0 12px #FFD60A60' : 'none',
+                        transition: 'all 0.3s',
+                      }}>
+                        {step < pickStep ? '✓' : step + 1}
+                      </div>
+                      <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: step <= pickStep ? '#FFD60A' : '#333', fontWeight: step === pickStep ? 700 : 400 }}>
+                        {RANK_LABELS[step]} PLACE
+                      </span>
+                      {step === 0 && <div style={{ width: 24, height: 1.5, background: step < pickStep ? '#FFD60A40' : 'rgba(255,255,255,0.06)', marginLeft: 2 }} />}
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* 3 response cards */}
+              {/* Cards — only show remaining (not yet picked) */}
               <div style={{
-                flex: 1, overflow: 'hidden', display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr',
-                gap: 12, padding: '0 16px 16px',
+                flex: 1, overflow: 'hidden',
+                display: 'grid',
+                gridTemplateColumns: remaining.length === 1 ? '1fr' : remaining.length === 2 ? '1fr 1fr' : '1fr 1fr 1fr',
+                gap: 10, padding: '0 14px 14px',
               }}>
-                {AIs.map(ai => {
-                  const c = CHAR_CONFIG[ai]
-                  return (
-                    <motion.div key={ai}
-                      style={{
-                        display: 'flex', flexDirection: 'column',
-                        background: 'rgba(255,255,255,0.03)',
-                        border: `1.5px solid ${c.color}30`,
-                        borderRadius: 14,
-                        overflow: 'hidden',
-                      }}
-                      whileHover={{ borderColor: c.color + '70', background: 'rgba(255,255,255,0.05)' }}
-                      transition={{ duration: 0.15 }}>
+                <AnimatePresence>
+                  {remaining.map(ai => {
+                    const c = CHAR_CONFIG[ai]
+                    return (
+                      <motion.div key={ai}
+                        layout
+                        initial={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.92, y: -20 }}
+                        transition={{ duration: 0.25 }}
+                        style={{ display: 'flex', flexDirection: 'column', background: 'rgba(255,255,255,0.04)', border: `1.5px solid ${c.color}35`, borderRadius: 14, overflow: 'hidden' }}
+                        whileHover={{ borderColor: c.color + '80', background: 'rgba(255,255,255,0.07)' }}>
 
-                      {/* Card header */}
-                      <div style={{
-                        flexShrink: 0, padding: '12px 16px',
-                        borderBottom: `1px solid ${c.color}20`,
-                        display: 'flex', alignItems: 'center', gap: 10,
-                        background: `${c.headDark}cc`,
-                      }}>
-                        <div style={{
-                          width: 36, height: 36, borderRadius: '50%',
-                          background: c.headBase,
-                          border: `2px solid ${c.color}60`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 16, color: c.color, fontWeight: 700,
-                          boxShadow: `0 0 12px ${c.color}30`,
-                        }}>
-                          {ai === 'claude' ? '◈' : ai === 'chatgpt' ? '⬡' : '✦'}
-                        </div>
-                        <div>
-                          <div style={{ fontFamily: 'Inter', fontWeight: 700, fontSize: 13, color: c.color, letterSpacing: '0.08em' }}>
-                            {c.label}
+                        {/* Card header */}
+                        <div style={{ flexShrink: 0, padding: '12px 16px', borderBottom: `1px solid ${c.color}18`, display: 'flex', alignItems: 'center', gap: 10, background: `${c.headDark}ee` }}>
+                          <div style={{ width: 34, height: 34, borderRadius: '50%', background: c.headBase, border: `2px solid ${c.color}70`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, color: c.color, fontWeight: 700, boxShadow: `0 0 14px ${c.color}50` }}>
+                            {ai === 'claude' ? '◈' : ai === 'chatgpt' ? '⬡' : '✦'}
                           </div>
-                          <div style={{ fontFamily: 'Inter', fontSize: 10, color: '#555' }}>
-                            {ai === 'claude' ? 'Anthropic' : ai === 'chatgpt' ? 'OpenAI' : 'Google'}
+                          <div>
+                            <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13, color: c.color, letterSpacing: '0.08em' }}>{c.label}</div>
+                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, color: '#444' }}>
+                              {ai === 'claude' ? 'Anthropic' : ai === 'chatgpt' ? 'OpenAI' : 'Google DeepMind'}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Response text */}
-                      <div style={{
-                        flex: 1, overflow: 'auto', padding: '14px 16px',
-                        fontFamily: 'Inter', fontSize: 12.5, color: '#ccc',
-                        lineHeight: 1.75, whiteSpace: 'pre-wrap',
-                      }}>
-                        {answers[ai]}
-                      </div>
+                        {/* Response */}
+                        <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px', fontFamily: 'Inter, sans-serif', fontSize: 12.5, color: '#bbb', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
+                          {answers[ai]}
+                        </div>
 
-                      {/* Crown button */}
-                      <div style={{ flexShrink: 0, padding: '12px 16px', borderTop: `1px solid ${c.color}15` }}>
-                        <motion.button
-                          style={{
-                            width: '100%', padding: '10px',
-                            background: `linear-gradient(135deg, ${c.color}22, ${c.color}10)`,
-                            border: `1.5px solid ${c.color}60`,
-                            borderRadius: 8, cursor: 'pointer',
-                            fontFamily: 'Inter', fontWeight: 700, fontSize: 13,
-                            color: c.color, letterSpacing: '0.05em',
-                          }}
-                          whileHover={{ background: `linear-gradient(135deg, ${c.color}44, ${c.color}22)`, scale: 1.02 }}
-                          whileTap={{ scale: 0.97 }}
-                          onClick={() => pickWinner(ai)}
-                        >
-                          👑 Crown Winner
-                        </motion.button>
-                      </div>
-                    </motion.div>
-                  )
-                })}
+                        {/* Rank button */}
+                        <div style={{ flexShrink: 0, padding: '10px 14px', borderTop: `1px solid ${c.color}12` }}>
+                          <motion.button
+                            style={{ width: '100%', padding: '11px', background: `${c.color}18`, border: `1.5px solid ${c.color}80`, borderRadius: 8, cursor: 'pointer', fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 12, color: c.color, letterSpacing: '0.12em' }}
+                            whileHover={{ background: `${c.color}35`, scale: 1.02 }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => pickRank(ai)}>
+                            ♛ SET AS {RANK_LABELS[pickStep]} PLACE
+                          </motion.button>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
+                </AnimatePresence>
               </div>
             </motion.div>
           )}
@@ -411,153 +408,177 @@ export default function GamePage() {
               style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
 
-              {/* Chairman speech */}
-              <motion.div style={{ flexShrink: 0, padding: '16px 24px 10px', textAlign: 'center' }}
-                initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 20, color: '#C9A84C' }}>
-                  👑 {CHAR_CONFIG[leader].label} WINS!
+              {/* Winner banner */}
+              <motion.div style={{ flexShrink: 0, padding: '12px 24px 4px', textAlign: 'center' }}
+                initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 22, letterSpacing: '0.1em', color: '#FFD60A' }}>
+                  ♛ {CHAR_CONFIG[leader].label} WINS!
                 </div>
-                <div style={{ fontFamily: 'Inter', fontSize: 12, color: '#666', marginTop: 4 }}>
-                  The Chairman has spoken. Here are the final rankings.
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: '#444', marginTop: 2, letterSpacing: '0.06em' }}>
+                  THE CHAIRMAN HAS SPOKEN
                 </div>
               </motion.div>
 
-              {/* Podium */}
-              <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 12, padding: '0 24px 16px' }}>
+              {/* ── PODIUM with real characters ── */}
+              <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: 16, padding: '4px 24px 0' }}>
                 {([1, 0, 2] as const).map((rankIdx, podiumPos) => {
                   const ai = ranking[rankIdx] as CharName
                   if (!ai) return null
                   const c = CHAR_CONFIG[ai]
-                  const podiumH = [80, 110, 55][podiumPos]
-                  const rank = rankIdx + 1
-                  const medals = ['🥇', '🥈', '🥉']
+                  const podiumH   = [108, 150, 72][podiumPos]
+                  const charSize  = [148, 190, 125][podiumPos]
+                  const rank      = rankIdx + 1
+
                   return (
-                    <motion.div key={ai} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}
-                      initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 + podiumPos * 0.15 }}>
-                      <div style={{ fontSize: 22 }}>
-                        {rank === 3
-                          ? <motion.span animate={{ rotate: [-4, 4, -4] }} transition={{ duration: 0.4, repeat: Infinity }}>😭</motion.span>
-                          : medals[rank - 1]}
-                      </div>
-                      <motion.div style={{
-                        width: 56, height: 56, borderRadius: '50%',
-                        background: c.headBase, border: `2.5px solid ${c.color}`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 22, color: c.color, fontWeight: 700,
-                        boxShadow: `0 0 20px ${c.color}50`,
-                      }}
-                        animate={rank === 1 ? { scale: [1, 1.06, 1] } : rank === 3 ? { rotate: [-2, 2, -2] } : {}}
-                        transition={{ duration: rank === 3 ? 0.4 : 1.5, repeat: Infinity }}>
-                        {ai === 'claude' ? '◈' : ai === 'chatgpt' ? '⬡' : '✦'}
-                        {rank === 3 && (
-                          <>
-                            <motion.div style={{ position: 'absolute', fontSize: 14, left: 0, top: '60%' }}
-                              animate={{ y: [0, 12], opacity: [1, 0] }} transition={{ duration: 0.7, repeat: Infinity }}>💧</motion.div>
-                            <motion.div style={{ position: 'absolute', fontSize: 14, right: 0, top: '60%' }}
-                              animate={{ y: [0, 12], opacity: [1, 0] }} transition={{ duration: 0.7, repeat: Infinity, delay: 0.35 }}>💧</motion.div>
-                          </>
-                        )}
-                      </motion.div>
-                      <div style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 700, color: c.color }}>
-                        {scores ? `${scores[ai]?.score ?? '?'}/10` : `#${rank}`}
-                      </div>
+                    <motion.div key={ai}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                      initial={{ opacity: 0, y: 70 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.25 + podiumPos * 0.14, type: 'spring', stiffness: 200, damping: 18 }}>
+
+                      {/* Rank label above character */}
                       <div style={{
-                        width: 72, height: podiumH, borderRadius: '6px 6px 0 0',
-                        background: rank === 1
-                          ? 'linear-gradient(180deg,#FFD700,#B8860B)'
-                          : rank === 2 ? 'linear-gradient(180deg,#C0C0C0,#808080)'
-                          : 'linear-gradient(180deg,#CD7F32,#8B4513)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 20,
-                        color: '#000', boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
-                        border: '1.5px solid rgba(255,255,255,0.15)',
-                      }}>{rank}</div>
-                      <div style={{ fontFamily: 'Inter', fontSize: 10, fontWeight: 600, color: c.color, letterSpacing: '0.1em' }}>{c.label}</div>
+                        fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 11,
+                        color: RANK_COLORS[rankIdx], letterSpacing: '0.14em',
+                        marginBottom: 2, textShadow: `0 0 10px ${RANK_COLORS[rankIdx]}60`,
+                      }}>
+                        {RANK_LABELS[rankIdx]}
+                      </div>
+
+                      {/* Character */}
+                      <Character name={ai} phase="idle" size={charSize} />
+
+                      {/* Podium block */}
+                      <div style={{
+                        width: 110, height: podiumH,
+                        background: PODIUM_BG[rankIdx],
+                        borderRadius: '10px 10px 0 0',
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', gap: 4,
+                        boxShadow: `0 -6px 24px ${RANK_COLORS[rankIdx]}35, 0 8px 32px rgba(0,0,0,0.7)`,
+                        border: `1.5px solid ${RANK_COLORS[rankIdx]}50`,
+                        position: 'relative',
+                      }}>
+                        <div style={{
+                          fontFamily: 'Syne, sans-serif', fontWeight: 800,
+                          fontSize: rank === 1 ? 32 : rank === 2 ? 26 : 22,
+                          color: rank === 1 ? '#3a2000' : rank === 2 ? '#1a1a2a' : '#fff',
+                          lineHeight: 1,
+                        }}>
+                          {rank}
+                        </div>
+                        <div style={{
+                          fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 9,
+                          color: rank === 1 ? '#3a200080' : rank === 2 ? '#1a1a2a80' : '#ffffff80',
+                          letterSpacing: '0.14em',
+                        }}>
+                          {c.label}
+                        </div>
+                      </div>
                     </motion.div>
                   )
                 })}
               </div>
 
-              {/* Response tabs */}
-              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '0 16px 16px', gap: 10 }}>
+              {/* ── Response viewer ── */}
+              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '8px 14px 14px', gap: 8, minHeight: 0 }}>
+
                 {/* Tab strip */}
-                <div style={{ flexShrink: 0, display: 'flex', gap: 8 }}>
+                <div style={{ flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center' }}>
                   {ranking.map((ai, i) => {
                     const c = CHAR_CONFIG[ai]
+                    const isActive = activeTab === ai
                     return (
-                      <button key={ai}
+                      <button key={ai} onClick={() => setActiveTab(ai)}
                         style={{
-                          fontFamily: 'Inter', fontWeight: 600, fontSize: 12,
-                          padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
-                          border: `1.5px solid ${c.color}40`,
-                          background: i === 0 ? c.headBase : 'transparent',
-                          color: i === 0 ? c.color : `${c.color}66`,
+                          fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 11,
+                          padding: '5px 14px', borderRadius: 6, cursor: 'pointer',
+                          border: `1.5px solid ${isActive ? c.color : c.color + '25'}`,
+                          background: isActive ? `${c.color}18` : 'transparent',
+                          color: isActive ? c.color : `${c.color}44`,
+                          letterSpacing: '0.08em', transition: 'all 0.15s',
                         }}>
-                        {['🥇', '🥈', '🥉'][i]} {c.label}
+                        {RANK_LABELS[i]} — {c.label}
                       </button>
                     )
                   })}
+                  {scores && (
+                    <button onClick={() => setShowScores(s => !s)}
+                      style={{
+                        marginLeft: 'auto',
+                        fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: 11,
+                        padding: '5px 14px', borderRadius: 6, cursor: 'pointer',
+                        border: `1.5px solid ${showScores ? '#FFD60A80' : 'rgba(255,255,255,0.08)'}`,
+                        background: showScores ? 'rgba(255,214,10,0.08)' : 'transparent',
+                        color: showScores ? '#FFD60A' : '#444',
+                        transition: 'all 0.15s',
+                      }}>
+                      {showScores ? 'Hide' : 'Show'} AI Analysis
+                    </button>
+                  )}
                 </div>
 
-                {/* Winner response */}
-                {answers[leader] && (
-                  <div style={{
-                    flex: 1, overflow: 'hidden', display: 'flex', gap: 12,
-                  }}>
-                    {/* Score (if available) */}
-                    {scores?.[leader] && (
-                      <div style={{
-                        flexShrink: 0, width: 160,
-                        background: `${CHAR_CONFIG[leader].headDark}dd`,
-                        border: `1.5px solid ${CHAR_CONFIG[leader].color}35`,
-                        borderRadius: 12, padding: 16,
-                        display: 'flex', flexDirection: 'column', gap: 10,
-                      }}>
-                        <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 26, color: CHAR_CONFIG[leader].color, textAlign: 'center' }}>
-                          {scores[leader].score}/10
-                        </div>
-                        <div style={{ fontFamily: 'Inter', fontSize: 10, color: '#888', textAlign: 'center', lineHeight: 1.5 }}>
-                          &ldquo;{scores[leader].verdict}&rdquo;
-                        </div>
-                        {(['accuracy', 'clarity', 'helpfulness', 'creativity'] as const).map(k => (
-                          <div key={k}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                              <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 600, color: '#555', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{k}</span>
-                              <span style={{ fontFamily: 'Inter', fontSize: 10, fontWeight: 700, color: CHAR_CONFIG[leader].color }}>{scores[leader][k]}</span>
+                {/* Content */}
+                {activeTab && answers[activeTab] && (
+                  <div style={{ flex: 1, overflow: 'hidden', display: 'flex', gap: 10, minHeight: 0 }}>
+
+                    {/* Score panel */}
+                    <AnimatePresence>
+                      {showScores && scores?.[activeTab] && (
+                        <motion.div
+                          initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }}
+                          style={{
+                            flexShrink: 0, width: 152,
+                            background: `${CHAR_CONFIG[activeTab].headDark}cc`,
+                            border: `1.5px solid ${CHAR_CONFIG[activeTab].color}28`,
+                            borderRadius: 10, padding: '14px 12px',
+                            display: 'flex', flexDirection: 'column', gap: 9,
+                          }}>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 30, color: CHAR_CONFIG[activeTab].color, lineHeight: 1 }}>
+                              {scores[activeTab].score}
+                              <span style={{ fontSize: 13, opacity: 0.6 }}>/10</span>
                             </div>
-                            <div style={{ height: 4, background: '#111', borderRadius: 2, overflow: 'hidden' }}>
-                              <motion.div style={{ height: '100%', background: CHAR_CONFIG[leader].color, borderRadius: 2 }}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${(scores[leader][k] / 10) * 100}%` }}
-                                transition={{ duration: 0.9, delay: 0.3 }} />
+                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, color: '#444', marginTop: 4, fontStyle: 'italic', lineHeight: 1.5 }}>
+                              &ldquo;{scores[activeTab].verdict}&rdquo;
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                          {(['accuracy', 'clarity', 'helpfulness', 'creativity'] as const).map(k => (
+                            <div key={k}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 9, fontWeight: 600, color: '#3a3a4a', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{k}</span>
+                                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 10, fontWeight: 700, color: CHAR_CONFIG[activeTab].color }}>{scores[activeTab][k]}</span>
+                              </div>
+                              <div style={{ height: 3, background: '#111', borderRadius: 2, overflow: 'hidden' }}>
+                                <motion.div style={{ height: '100%', background: CHAR_CONFIG[activeTab].color, borderRadius: 2 }}
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${(scores[activeTab][k] / 10) * 100}%` }}
+                                  transition={{ duration: 0.8, delay: 0.2 }} />
+                              </div>
+                            </div>
+                          ))}
+                          <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 8, color: '#2a2a3a', textAlign: 'center', lineHeight: 1.6, marginTop: 2 }}>
+                            ↑ AI judge assessment<br/>not your ranking
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
                     {/* Response text */}
-                    <div style={{
-                      flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                      background: 'rgba(255,255,255,0.03)',
-                      border: `1.5px solid ${CHAR_CONFIG[leader].color}30`,
-                      borderRadius: 12,
-                    }}>
-                      <div style={{
-                        flexShrink: 0, padding: '10px 16px', borderBottom: `1px solid ${CHAR_CONFIG[leader].color}15`,
-                        display: 'flex', alignItems: 'center', gap: 8,
-                      }}>
-                        <span style={{ fontFamily: 'Inter', fontWeight: 700, fontSize: 12, color: CHAR_CONFIG[leader].color }}>
-                          {CHAR_CONFIG[leader].label} — WINNING RESPONSE
+                    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: 'rgba(255,255,255,0.03)', border: `1.5px solid ${CHAR_CONFIG[activeTab].color}22`, borderRadius: 10, minWidth: 0 }}>
+                      <div style={{ flexShrink: 0, padding: '10px 16px', borderBottom: `1px solid ${CHAR_CONFIG[activeTab].color}12`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: CHAR_CONFIG[activeTab].color, boxShadow: `0 0 8px ${CHAR_CONFIG[activeTab].color}` }} />
+                        <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 12, color: CHAR_CONFIG[activeTab].color, letterSpacing: '0.06em' }}>
+                          {CHAR_CONFIG[activeTab].label} — {RANK_LABELS[ranking.indexOf(activeTab)]} PLACE
                         </span>
-                        <span style={{ marginLeft: 'auto', fontSize: 14 }}>🏆</span>
+                        {ranking.indexOf(activeTab) === 0 && (
+                          <span style={{ marginLeft: 'auto', fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 10, color: '#FFD60A', letterSpacing: '0.14em' }}>
+                            ★ WINNER
+                          </span>
+                        )}
                       </div>
-                      <div style={{
-                        flex: 1, overflow: 'auto', padding: '14px 18px',
-                        fontFamily: 'Inter', fontSize: 13, color: '#ccc',
-                        lineHeight: 1.8, whiteSpace: 'pre-wrap',
-                      }}>
-                        {answers[leader]}
+                      <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px', fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#c8c8d8', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                        {answers[activeTab]}
                       </div>
                     </div>
                   </div>
@@ -580,15 +601,16 @@ export default function GamePage() {
       {/* ── INPUT BAR ── */}
       <div className="mc-input-wrap">
         {!chatOpen && phase === 'idle' && (
-          <motion.span style={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 500, color: '#3a3a4a', flexShrink: 0, marginRight: 8 }}
-            animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity }}>
+          <motion.span
+            style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 500, color: '#252535', flexShrink: 0, marginRight: 8, letterSpacing: '0.12em' }}
+            animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 2.2, repeat: Infinity }}>
             PRESS T TO CHAT
           </motion.span>
         )}
 
         {(chatOpen || phase !== 'idle') && (
           <>
-            <span style={{ fontFamily: 'monospace', fontSize: 14, color: '#444' }}>▶</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 14, color: '#2a2a3a' }}>▶</span>
             <input ref={inputRef} type="text" value={prompt}
               onChange={e => setPrompt(e.target.value)}
               onKeyDown={e => {
@@ -599,19 +621,15 @@ export default function GamePage() {
               placeholder={
                 phase === 'idle'    ? 'Enter your prompt... (Enter to send, Esc to close)' :
                 phase === 'writing' ? 'AIs are writing...' :
-                phase === 'review'  ? 'Pick the best response above ↑' :
-                'Click ↺ New Battle'
+                phase === 'review'  ? `Select ${RANK_LABELS[pickStep]} place above` :
+                'Click New Battle to play again'
               }
-              style={{
-                flex: 1, background: 'transparent', outline: 'none',
-                fontFamily: 'Inter', fontSize: 13, fontWeight: 400,
-                color: '#e0e0e8', border: 'none',
-              }}
+              style={{ flex: 1, background: 'transparent', outline: 'none', fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 400, color: '#e0e0e8', border: 'none' }}
               autoFocus={chatOpen}
             />
             {phase === 'idle' && (
-              <button className="btn" style={{ fontSize: 12, flexShrink: 0 }} onClick={startBattle}>
-                ↵ Send
+              <button className="btn" style={{ fontSize: 11, flexShrink: 0, letterSpacing: '0.06em' }} onClick={startBattle}>
+                ↵ SEND
               </button>
             )}
           </>
@@ -621,8 +639,8 @@ export default function GamePage() {
           {(['idle', 'writing', 'review', 'results'] as Phase[]).map(p => (
             <div key={p} className="phase-dot" style={{
               width: phase === p ? 20 : 6,
-              background: phase === p ? '#C9A84C' : 'rgba(255,255,255,0.1)',
-              boxShadow: phase === p ? '0 0 8px #C9A84C80' : 'none',
+              background: phase === p ? '#FFD60A' : 'rgba(255,255,255,0.07)',
+              boxShadow: phase === p ? '0 0 8px #FFD60A80' : 'none',
             }} />
           ))}
         </div>
