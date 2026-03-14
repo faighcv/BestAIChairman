@@ -43,7 +43,9 @@ async function getGemini(prompt: string): Promise<string> {
     return result.response.text()
   } catch (e: unknown) {
     const err = e as { message?: string }
-    if (err.message?.includes('API_KEY_INVALID')) return '⚠️ Gemini: Invalid API key. Get a FREE key at aistudio.google.com (Gemini subscription ≠ API key)'
+    if (err.message?.includes('API_KEY_INVALID')) return '⚠️ Gemini: Invalid API key. Get one at aistudio.google.com'
+    if (err.message?.includes('429') || err.message?.includes('quota') || err.message?.includes('RESOURCE_EXHAUSTED'))
+      return '⚠️ Gemini: Free tier quota is 0. Click "Set up billing" in aistudio.google.com to activate paid tier (very cheap).'
     return `⚠️ Gemini error: ${err.message || 'unknown'}`
   }
 }
