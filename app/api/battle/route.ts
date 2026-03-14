@@ -10,13 +10,16 @@ const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 async function getClaude(prompt: string): Promise<string> {
   try {
     const msg = await anthropic.messages.create({
-      model: 'claude-opus-4-5',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 512,
       messages: [{ role: 'user', content: prompt }],
     })
     return (msg.content[0] as { text: string }).text
-  } catch {
-    return '⚠️ Claude is unavailable right now. (Check ANTHROPIC_API_KEY)'
+  } catch (e: unknown) {
+    const err = e as { status?: number; message?: string }
+    if (err.status === 401) return '⚠️ Claude: Invalid API key. Get one at console.anthropic.com (note: Claude.ai Pro ≠ API access)'
+    if (err.status === 429) return '⚠️ Claude: Out of credits. Add credits at console.anthropic.com'
+    return `⚠️ Claude error: ${err.message || 'unknown'}`
   }
 }
 
@@ -38,8 +41,10 @@ async function getGemini(prompt: string): Promise<string> {
     const model = genai.getGenerativeModel({ model: 'gemini-1.5-flash' })
     const result = await model.generateContent(prompt)
     return result.response.text()
-  } catch {
-    return '⚠️ Gemini is unavailable. (Check GEMINI_API_KEY)'
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    if (err.message?.includes('API_KEY_INVALID')) return '⚠️ Gemini: Invalid API key. Get a FREE key at aistudio.google.com (Gemini subscription ≠ API key)'
+    return `⚠️ Gemini error: ${err.message || 'unknown'}`
   }
 }
 
