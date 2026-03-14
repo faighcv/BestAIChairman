@@ -1,0 +1,135 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-game: 'Press Start 2P', cursive;
+  --color-claude: #D97559;
+  --color-chatgpt: #10A37F;
+  --color-gemini: #4285F4;
+  --color-chairman: #C9A84C;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: #0a0a1a;
+  font-family: 'Press Start 2P', cursive;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Pixel scanlines overlay */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #111; }
+::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+
+/* Neon text glow */
+.neon-text {
+  text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 40px currentColor;
+}
+
+/* Pixel border */
+.pixel-border {
+  image-rendering: pixelated;
+  border: 3px solid;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.5);
+}
+
+/* Game button */
+.btn-game {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-width: 2px;
+  border-style: solid;
+  transition: all 0.1s;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.8);
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+}
+.btn-game:active {
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.8);
+  transform: translate(2px, 2px);
+}
+
+/* Chat input area */
+.minecraft-chat {
+  background: rgba(0,0,0,0.7);
+  border: 2px solid rgba(255,255,255,0.2);
+  backdrop-filter: blur(4px);
+}
+
+/* Table wood texture */
+.table-surface {
+  background: radial-gradient(ellipse at center, #5c3a1e 0%, #3d2410 60%, #2a1a0a 100%);
+  border: 4px solid #7a4e2d;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.8), inset 0 2px 8px rgba(255,200,100,0.1);
+}
+
+/* Character base styles */
+.character-claude { filter: drop-shadow(0 0 12px #D97559); }
+.character-chatgpt { filter: drop-shadow(0 0 12px #10A37F); }
+.character-gemini { filter: drop-shadow(0 0 12px #4285F4); }
+.character-chairman { filter: drop-shadow(0 0 12px #C9A84C); }
+
+/* Podium styles */
+.podium-1st { background: linear-gradient(180deg, #FFD700, #B8860B); }
+.podium-2nd { background: linear-gradient(180deg, #C0C0C0, #808080); }
+.podium-3rd { background: linear-gradient(180deg, #CD7F32, #8B4513); }
+
+/* Score bar animation */
+@keyframes fillBar {
+  from { width: 0%; }
+  to { width: var(--target-width); }
+}
+.score-bar { animation: fillBar 1s ease-out forwards; }
+
+/* Speech bubble */
+.speech-bubble {
+  position: relative;
+  background: rgba(15, 15, 30, 0.95);
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+}
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: rgba(255,255,255,0.15);
+}
+
+/* Stars background */
+.stars-bg {
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, white, transparent),
+    radial-gradient(1px 1px at 30% 50%, white, transparent),
+    radial-gradient(1px 1px at 50% 10%, white, transparent),
+    radial-gradient(1px 1px at 70% 80%, white, transparent),
+    radial-gradient(1px 1px at 90% 40%, white, transparent),
+    radial-gradient(1px 1px at 20% 70%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 80% 90%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(2px 2px at 15% 85%, rgba(255,255,200,0.8), transparent),
+    radial-gradient(2px 2px at 65% 25%, rgba(200,255,255,0.8), transparent);
+}
+
+/* Writing paper */
+.paper {
+  background: #fefef0;
+  border: 2px solid #d4c891;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+}
